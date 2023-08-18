@@ -1,0 +1,1 @@
+# squirrel-language-server
