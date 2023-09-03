@@ -117,7 +117,7 @@ impl<'a,'b> Lexer<'b> {
     }
 
     pub fn start_token(&mut self) {
-        self.cur_token_value = String::from(self.cur_char);
+        self.cur_token_value = String::from("");
     }
 
     pub fn end_token(&mut self, token_type: TokenType) {
@@ -141,9 +141,9 @@ impl<'a,'b> Lexer<'b> {
     pub fn lex(&mut self) {
         let mut line: u32 = 1;
 
-        loop {
-            self.next();
+        self.next();
 
+        loop {
             if self.cur_char == '\0' {
                 break;
             }
@@ -159,12 +159,11 @@ impl<'a,'b> Lexer<'b> {
             
             match self.cur_char {
                 '.' => {
-                    if self.peek() != '.' {
+                    if self.next() != '.' {
                         self.end_token(TokenType::Dot);
                         continue;
                     }
-                    self.next();
-                    if self.peek() != '.' {
+                    if self.next() != '.' {
                         self.end_token(TokenType::Invalid);
                         continue;
                     }
@@ -172,6 +171,7 @@ impl<'a,'b> Lexer<'b> {
                     self.end_token(TokenType::Varargs);
                 }
                 _ => {
+                    self.next();
                     self.end_token(TokenType::Invalid);
                     continue;
                 }
