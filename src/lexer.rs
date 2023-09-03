@@ -19,6 +19,8 @@ pub enum TokenType {
     RightCurly,             // }
     LeftSquare,             // [
     RightSquare,            // ]
+    LeftParen,              // (
+    RightParen,             // )
     Delete,                 // delete
     Switch,                 // switch
     Arrow,                  // <-
@@ -95,7 +97,7 @@ pub struct Token {
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.token_type)
+        write!(f, "{:?} ({:?})", self.token_type, self.value)
     }
 }
 
@@ -169,6 +171,14 @@ impl<'a,'b> Lexer<'b> {
                     }
                     self.next();
                     self.end_token(TokenType::Varargs);
+                }
+                '(' => {
+                    self.next();
+                    self.end_token(TokenType::LeftParen);
+                }
+                ')' => {
+                    self.next();
+                    self.end_token(TokenType::RightParen);
                 }
                 _ => {
                     self.next();
