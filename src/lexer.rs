@@ -168,6 +168,7 @@ impl<'a,'b> Lexer<'b> {
                         self.end_token(TokenType::Invalid);
                         continue;
                     }
+                    self.next();
                     self.end_token(TokenType::Varargs);
                 }
                 _ => {
