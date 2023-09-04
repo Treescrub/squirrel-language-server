@@ -150,9 +150,11 @@ impl<'a,'b> Lexer<'b> {
                 break;
             }
             if self.cur_char == ' ' || self.cur_char == '\t' || self.cur_char == '\r' {
+                self.next();
                 continue;
             }
             if self.cur_char == '\n' {
+                self.next();
                 line += 1;
                 continue;
             }
