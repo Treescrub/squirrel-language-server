@@ -23,7 +23,6 @@ pub enum TokenType {
     RightParen,             // )
     Delete,                 // delete
     Switch,                 // switch
-    Arrow,                  // <-
     If,                     // if
     Else,                   // else
     While,                  // while
@@ -33,7 +32,7 @@ pub enum TokenType {
     Null,                   // null
     Foreach,                // foreach
     In,                     // in
-    Newslot,                // newslot
+    Newslot,                // <-
     Local,                  // local
     Clone,                  // clone
     Return,                 // return
