@@ -43,6 +43,7 @@ pub enum TokenType {
     LessThan,               // <
     LessOrEqual,            // <=
     GreaterOrEqual,         // >=
+    GreaterThan,            // >
     ThreeWayCompare,        // <=>
     LogicalAnd,             // &&
     LogicalOr,              // ||
@@ -257,6 +258,26 @@ impl<'a,'b> Lexer<'b> {
                         _ => {
                             self.next();
                             self.end_token(TokenType::LessThan);
+                        }
+                    }
+                }
+                '>' => {
+                    match self.next() {
+                        '=' => {
+                            self.next();
+                            self.end_token(TokenType::GreaterOrEqual);
+                        }
+                        '>' => {
+                            if self.next() == '>' {
+                                self.next();
+                                self.end_token(TokenType::UnsignedShiftRight);
+                            } else {
+                                self.end_token(TokenType::ShiftRight);
+                            }
+                        }
+                        _ => {
+                            self.next();
+                            self.end_token(TokenType::GreaterThan);
                         }
                     }
                 }
