@@ -1,12 +1,12 @@
 use core::fmt;
-use std::{str::Chars, iter::Peekable};
+use std::{str::Chars, iter::Peekable, collections::HashMap};
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum TokenType {
-    Identifier(String),
-    StringLiteral(String),
-    IntegerLiteral(u32),
-    FloatLiteral(f32),
+    Identifier,
+    StringLiteral,
+    IntegerLiteral,
+    FloatLiteral,
     Class,                  // class
     Base,                   // base
     Extends,                // extends
@@ -38,6 +38,7 @@ pub enum TokenType {
     Clone,                  // clone
     Return,                 // return
     Typeof,                 // typeof
+    Assign,                 // =
     Equal,                  // ==
     NotEqual,               // !=
     LessOrEqual,            // <=
@@ -105,7 +106,8 @@ pub struct Lexer<'a> {
     iter: Peekable<Chars<'a>>,
     cur_char: char,
     cur_token_value: String,
-    pub tokens: Vec<Token/*<'a>*/>,
+    pub tokens: Vec<Token>,
+    keywords: HashMap<String, TokenType>,
 }
 
 impl<'a,'b> Lexer<'b> {
@@ -114,8 +116,52 @@ impl<'a,'b> Lexer<'b> {
             iter: data.chars().peekable(),
             cur_char: '\0',
             cur_token_value: String::from(""),
-            tokens: Vec::<Token>::new()
+            tokens: Vec::<Token>::new(),
+            keywords: Self::init_keywords(),
         }
+    }
+
+    pub fn init_keywords() -> HashMap<String, TokenType> {
+        return HashMap::from([
+            (String::from("while"), TokenType::While),
+            (String::from("do"), TokenType::Do),
+            (String::from("if"), TokenType::If),
+            (String::from("else"), TokenType::Else),
+            (String::from("break"), TokenType::Break),
+            (String::from("continue"), TokenType::Continue),
+            (String::from("return"), TokenType::Return),
+            (String::from("null"), TokenType::Null),
+            (String::from("function"), TokenType::Function),
+            (String::from("local"), TokenType::Local),
+            (String::from("for"), TokenType::For),
+            (String::from("foreach"), TokenType::Foreach),
+            (String::from("in"), TokenType::In),
+            (String::from("typeof"), TokenType::Typeof),
+            (String::from("base"), TokenType::Base),
+            (String::from("delete"), TokenType::Delete),
+            (String::from("try"), TokenType::Try),
+            (String::from("catch"), TokenType::Catch),
+            (String::from("throw"), TokenType::Throw),
+            (String::from("clone"), TokenType::Clone),
+            (String::from("yield"), TokenType::Yield),
+            (String::from("resume"), TokenType::Resume),
+            (String::from("switch"), TokenType::Switch),
+            (String::from("case"), TokenType::Case),
+            (String::from("default"), TokenType::Default),
+            (String::from("this"), TokenType::This),
+            (String::from("class"), TokenType::Class),
+            (String::from("extends"), TokenType::Extends),
+            (String::from("constructor"), TokenType::Constructor),
+            (String::from("instanceof"), TokenType::Instanceof),
+            (String::from("true"), TokenType::True),
+            (String::from("false"), TokenType::False),
+            (String::from("static"), TokenType::Static),
+            (String::from("enum"), TokenType::Enum),
+            (String::from("const"), TokenType::Const),
+            (String::from("__LINE__"), TokenType::LineInfo),
+            (String::from("__FILE__"), TokenType::FileInfo),
+            (String::from("rawcall"), TokenType::Rawcall),
+        ]);
     }
 
     pub fn start_token(&mut self) {
@@ -162,6 +208,23 @@ impl<'a,'b> Lexer<'b> {
             self.start_token();
             
             match self.cur_char {
+                'a'..='z' | 'A'..='Z' => {
+                    // lex identifier/keyword
+                    loop {
+                        self.next();
+                        match self.cur_char {
+                            'a'..='z' | 'A'..='Z' | '_' | '1'..='9' => (),
+                            _ => {
+                                if self.keywords.contains_key(&self.cur_token_value) {
+                                    self.end_token(self.keywords[&self.cur_token_value]);
+                                } else {
+                                    self.end_token(TokenType::Identifier);
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
                 '.' => {
                     if self.next() != '.' {
                         self.end_token(TokenType::Dot);
