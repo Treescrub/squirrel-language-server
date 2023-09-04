@@ -75,6 +75,7 @@ pub enum TokenType {
     Throw,                  // throw
     Resume,                 // resume
     DoubleColon,            // ::
+    Colon,                  // :
     Case,                   // case
     Default,                // default
     UnsignedShiftRight,     // >>>
@@ -395,6 +396,17 @@ impl<'a,'b> Lexer<'b> {
                         }
                         _ => {
                             self.end_token(TokenType::Minus);
+                        }
+                    }
+                }
+                ':' => {
+                    match self.next() {
+                        ':' => {
+                            self.next();
+                            self.end_token(TokenType::DoubleColon);
+                        }
+                        _ => {
+                            self.end_token(TokenType::Colon);
                         }
                     }
                 }
