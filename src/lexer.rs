@@ -243,6 +243,17 @@ impl<'a,'b> Lexer<'b> {
                         self.end_token(TokenType::NotEqual);
                     }
                 }
+                '%' => {
+                    match self.next() {
+                        '=' => {
+                            self.next();
+                            self.end_token(TokenType::ModuloEqual);
+                        }
+                        _ => {
+                            self.end_token(TokenType::Modulo);
+                        }
+                    }
+                }
                 '&' => {
                     match self.next() {
                         '=' => {
