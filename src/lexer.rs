@@ -258,6 +258,21 @@ impl<'a,'b> Lexer<'b> {
                         }
                     }
                 }
+                '|' => {
+                    match self.next() {
+                        '=' => {
+                            self.next();
+                            self.end_token(TokenType::OrEqual);
+                        }
+                        '|' => {
+                            self.next();
+                            self.end_token(TokenType::LogicalOr);
+                        }
+                        _ => {
+                            self.end_token(TokenType::BitwiseOr);
+                        }
+                    }
+                }
                 '<' => {
                     match self.next() {
                         '=' => {
