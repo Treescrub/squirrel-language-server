@@ -75,6 +75,7 @@ pub enum TokenType {
     Throw,                  // throw
     Resume,                 // resume
     DoubleColon,            // ::
+    Ternary,                // ?
     Colon,                  // :
     Case,                   // case
     Default,                // default
@@ -409,6 +410,10 @@ impl<'a,'b> Lexer<'b> {
                             self.end_token(TokenType::Colon);
                         }
                     }
+                }
+                '?' => {
+                    self.next();
+                    self.end_token(TokenType::Ternary);
                 }
                 '.' => {
                     if self.next() != '.' {
