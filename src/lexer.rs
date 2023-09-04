@@ -234,37 +234,31 @@ impl<'a,'b> Lexer<'b> {
                     }
                 }
                 '<' => {
-                    if self.peek() == '=' {
-                        self.next();
-                        if self.next() == '>' {
-                            self.next();
-                            self.end_token(TokenType::ThreeWayCompare);
-                        } else {
-                            self.end_token(TokenType::LessOrEqual);
+                    match self.next() {
+                        '=' => {
+                            if self.next() == '>' {
+                                self.end_token(TokenType::ThreeWayCompare);
+                            } else {
+                                self.end_token(TokenType::LessOrEqual);
+                            }
                         }
-                        continue;
+                        '-' => {
+                            self.next();
+                            self.end_token(TokenType::Newslot);
+                        }
+                        '<' => {
+                            self.next();
+                            self.end_token(TokenType::ShiftLeft);
+                        }
+                        '/' => {
+                            self.next();
+                            self.end_token(TokenType::AttributeOpen);
+                        }
+                        _ => {
+                            self.next();
+                            self.end_token(TokenType::LessThan);
+                        }
                     }
-                    if self.peek() == '-' {
-                        self.next();
-                        self.next();
-                        self.end_token(TokenType::Newslot);
-                        continue;
-                    }
-                    if self.peek() == '<' {
-                        self.next();
-                        self.next();
-                        self.end_token(TokenType::ShiftLeft);
-                        continue;
-                    }
-                    if self.peek() == '/' {
-                        self.next();
-                        self.next();
-                        self.end_token(TokenType::AttributeOpen);
-                        continue;
-                    }
-
-                    self.next();
-                    self.end_token(TokenType::LessThan);
                 }
                 '.' => {
                     if self.next() != '.' {
