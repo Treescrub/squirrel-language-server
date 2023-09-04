@@ -335,6 +335,21 @@ impl<'a,'b> Lexer<'b> {
                         }
                     }
                 }
+                '-' => {
+                    match self.next() {
+                        '=' => {
+                            self.next();
+                            self.end_token(TokenType::MinusEqual);
+                        }
+                        '-' => {
+                            self.next();
+                            self.end_token(TokenType::MinusMinus);
+                        }
+                        _ => {
+                            self.end_token(TokenType::Minus);
+                        }
+                    }
+                }
                 '.' => {
                     if self.next() != '.' {
                         self.end_token(TokenType::Dot);
