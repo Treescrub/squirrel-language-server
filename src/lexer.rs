@@ -243,6 +243,21 @@ impl<'a,'b> Lexer<'b> {
                         self.end_token(TokenType::NotEqual);
                     }
                 }
+                '&' => {
+                    match self.next() {
+                        '=' => {
+                            self.next();
+                            self.end_token(TokenType::AndEqual);
+                        }
+                        '&' => {
+                            self.next();
+                            self.end_token(TokenType::LogicalAnd);
+                        }
+                        _ => {
+                            self.end_token(TokenType::BitwiseAnd);
+                        }
+                    }
+                }
                 '<' => {
                     match self.next() {
                         '=' => {
