@@ -45,6 +45,7 @@ pub enum TokenType {
     GreaterOrEqual,         // >=
     GreaterThan,            // >
     ThreeWayCompare,        // <=>
+    LogicalNot,             // !
     LogicalAnd,             // &&
     LogicalOr,              // ||
     BitwiseAnd,             // &
@@ -232,6 +233,14 @@ impl<'a,'b> Lexer<'b> {
                     } else {
                         self.next();
                         self.end_token(TokenType::Equal);
+                    }
+                }
+                '!' => {
+                    if self.next() != '=' {
+                        self.end_token(TokenType::LogicalNot);
+                    } else {
+                        self.next();
+                        self.end_token(TokenType::NotEqual);
                     }
                 }
                 '<' => {
