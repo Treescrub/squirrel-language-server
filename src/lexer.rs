@@ -320,6 +320,21 @@ impl<'a,'b> Lexer<'b> {
                         }
                     }
                 }
+                '+' => {
+                    match self.next() {
+                        '=' => {
+                            self.next();
+                            self.end_token(TokenType::PlusEqual);
+                        }
+                        '+' => {
+                            self.next();
+                            self.end_token(TokenType::PlusPlus);
+                        }
+                        _ => {
+                            self.end_token(TokenType::Plus);
+                        }
+                    }
+                }
                 '.' => {
                     if self.next() != '.' {
                         self.end_token(TokenType::Dot);
