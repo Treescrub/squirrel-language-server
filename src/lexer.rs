@@ -40,6 +40,7 @@ pub enum TokenType {
     Assign,                 // =
     Equal,                  // ==
     NotEqual,               // !=
+    LessThan,               // <
     LessOrEqual,            // <=
     GreaterOrEqual,         // >=
     ThreeWayCompare,        // <=>
@@ -231,6 +232,39 @@ impl<'a,'b> Lexer<'b> {
                         self.next();
                         self.end_token(TokenType::Equal);
                     }
+                }
+                '<' => {
+                    if self.peek() == '=' {
+                        self.next();
+                        if self.next() == '>' {
+                            self.next();
+                            self.end_token(TokenType::ThreeWayCompare);
+                        } else {
+                            self.end_token(TokenType::LessOrEqual);
+                        }
+                        continue;
+                    }
+                    if self.peek() == '-' {
+                        self.next();
+                        self.next();
+                        self.end_token(TokenType::Newslot);
+                        continue;
+                    }
+                    if self.peek() == '<' {
+                        self.next();
+                        self.next();
+                        self.end_token(TokenType::ShiftLeft);
+                        continue;
+                    }
+                    if self.peek() == '/' {
+                        self.next();
+                        self.next();
+                        self.end_token(TokenType::AttributeOpen);
+                        continue;
+                    }
+
+                    self.next();
+                    self.end_token(TokenType::LessThan);
                 }
                 '.' => {
                     if self.next() != '.' {
