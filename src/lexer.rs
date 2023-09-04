@@ -224,6 +224,14 @@ impl<'a,'b> Lexer<'b> {
                         }
                     }
                 }
+                '=' => {
+                    if self.next() != '=' {
+                        self.end_token(TokenType::Assign);
+                    } else {
+                        self.next();
+                        self.end_token(TokenType::Equal);
+                    }
+                }
                 '.' => {
                     if self.next() != '.' {
                         self.end_token(TokenType::Dot);
