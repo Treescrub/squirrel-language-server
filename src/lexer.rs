@@ -182,6 +182,22 @@ impl<'a,'b> Lexer<'b> {
                     self.next();
                     self.end_token(TokenType::RightParen);
                 }
+                '[' => {
+                    self.next();
+                    self.end_token(TokenType::LeftSquare);
+                }
+                ']' => {
+                    self.next();
+                    self.end_token(TokenType::RightSquare);
+                }
+                '{' => {
+                    self.next();
+                    self.end_token(TokenType::LeftCurly);
+                }
+                '}' => {
+                    self.next();
+                    self.end_token(TokenType::RightCurly);
+                }
                 _ => {
                     self.next();
                     self.end_token(TokenType::Invalid);
