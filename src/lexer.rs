@@ -128,7 +128,7 @@ impl<'a,'b> Lexer<'b> {
         }
     }
 
-    pub fn init_keywords() -> HashMap<String, TokenType> {
+    fn init_keywords() -> HashMap<String, TokenType> {
         return HashMap::from([
             (String::from("while"), TokenType::While),
             (String::from("do"), TokenType::Do),
@@ -171,25 +171,25 @@ impl<'a,'b> Lexer<'b> {
         ]);
     }
 
-    pub fn start_token(&mut self) {
+    fn start_token(&mut self) {
         self.cur_token_value = String::from("");
     }
 
-    pub fn end_token(&mut self, token_type: TokenType) {
+    fn end_token(&mut self, token_type: TokenType) {
         self.tokens.push(Token {
             token_type,
             value: self.cur_token_value.clone(),
         });
     }
 
-    pub fn next(&mut self) -> char {
+    fn next(&mut self) -> char {
         self.cur_token_value.push(self.cur_char);
         self.cur_char = self.iter.next().unwrap_or('\0');
 
         return self.cur_char;
     }
 
-    pub fn peek(&mut self) -> char {
+    fn peek(&mut self) -> char {
         return *self.iter.peek().unwrap_or(&'\0');
     }
 
