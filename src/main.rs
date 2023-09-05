@@ -45,16 +45,6 @@ impl LanguageServer for Backend {
     }
 
     async fn initialized(&self, _: InitializedParams) {
-        let mut lexer: Lexer = Lexer::new("function a(b){}");
-        lexer.lex();
-        let mut tokens: String = String::from("");
-        for token in &lexer.tokens {
-            tokens.push_str(&token.to_string());
-            tokens.push('\n');
-        }
-        self.client
-            .log_message(MessageType::INFO, format!("tokens:\n{}", tokens))
-            .await;
         self.client
             .log_message(MessageType::INFO, "initialized!")
             .await;
@@ -96,7 +86,17 @@ impl LanguageServer for Backend {
         Ok(None)
     }
 
-    async fn did_open(&self, _: DidOpenTextDocumentParams) {
+    async fn did_open(&self, params: DidOpenTextDocumentParams) {
+        let mut lexer: Lexer = Lexer::new(&params.text_document.text);
+        lexer.lex();
+        let mut tokens: String = String::from("");
+        for token in &lexer.tokens {
+            tokens.push_str(&token.to_string());
+            tokens.push('\n');
+        }
+        self.client
+            .log_message(MessageType::INFO, format!("tokens:\n{}", tokens))
+            .await;
         self.client
             .log_message(MessageType::INFO, "file opened!")
             .await;
