@@ -80,6 +80,7 @@ pub enum TokenType {
     Ternary,                // ?
     Colon,                  // :
     Semicolon,              // ;
+    Comma,                  // ,
     Case,                   // case
     Default,                // default
     UnsignedShiftRight,     // >>>
@@ -444,6 +445,10 @@ impl<'a,'b> Lexer<'b> {
                 ';' => {
                     self.next();
                     self.end_token(TokenType::Semicolon);
+                }
+                ',' => {
+                    self.next();
+                    self.end_token(TokenType::Comma);
                 }
                 '?' => {
                     self.next();
