@@ -51,6 +51,7 @@ pub enum TokenType {
     BitwiseAnd,             // &
     BitwiseOr,              // |
     BitwiseXor,             // ^
+    BitwiseNot,             // ~
     Modulo,                 // %
     Multiply,               // *
     Divide,                 // /
@@ -64,6 +65,7 @@ pub enum TokenType {
     AndEqual,               // &=
     OrEqual,                // |=
     XorEqual,               // ^=
+    BitwiseNotEqual,        // ~=
     ShiftLeft,              // <<
     ShiftRight,             // >>
     PlusPlus,               // ++
@@ -336,6 +338,17 @@ impl<'a,'b> Lexer<'b> {
                         }
                         _ => {
                             self.end_token(TokenType::BitwiseXor);
+                        }
+                    }
+                }
+                '~' => {
+                    match self.next() {
+                        '=' => {
+                            self.next();
+                            self.end_token(TokenType::BitwiseNotEqual);
+                        }
+                        _ => {
+                            self.end_token(TokenType::BitwiseNot);
                         }
                     }
                 }
