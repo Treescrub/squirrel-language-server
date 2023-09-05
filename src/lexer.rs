@@ -102,16 +102,20 @@ pub enum TokenType {
 pub struct Token {
     pub token_type: TokenType,
     pub value: String,
+    pub line: u32,
+    pub column: u32,
 }
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?} ({:?})", self.token_type, self.value)
+        write!(f, "{:?} ({:?}) at line {:?} column {:?}", self.token_type, self.value, self.line, self.column)
     }
 }
 
 pub struct Lexer<'a> {
     iter: Peekable<Chars<'a>>,
+    line: u32,
+    column: u32,
     cur_char: char,
     cur_token_value: String,
     pub tokens: Vec<Token>,
@@ -122,6 +126,8 @@ impl<'a,'b> Lexer<'b> {
     pub fn new(data: &'a str) -> Self where 'a: 'b {
         Self {
             iter: data.chars().peekable(),
+            line: 1,
+            column: 0,
             cur_char: '\0',
             cur_token_value: String::from(""),
             tokens: Vec::<Token>::new(),
@@ -180,12 +186,15 @@ impl<'a,'b> Lexer<'b> {
         self.tokens.push(Token {
             token_type,
             value: self.cur_token_value.clone(),
+            line: self.line,
+            column: self.column,
         });
     }
 
     fn next(&mut self) -> char {
         self.cur_token_value.push(self.cur_char);
         self.cur_char = self.iter.next().unwrap_or('\0');
+        self.column += 1;
 
         return self.cur_char;
     }
@@ -200,8 +209,6 @@ impl<'a,'b> Lexer<'b> {
     }
 
     pub fn lex(&mut self) {
-        let mut line: u32 = 1;
-
         self.next();
 
         loop {
@@ -214,7 +221,8 @@ impl<'a,'b> Lexer<'b> {
             }
             if self.cur_char == '\n' {
                 self.next();
-                line += 1;
+                self.line += 1;
+                self.column = 1;
                 continue;
             }
 
