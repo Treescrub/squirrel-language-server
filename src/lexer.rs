@@ -229,6 +229,22 @@ impl<'a,'b> Lexer<'b> {
                         }
                     }
                 }
+                '\'' | '"' => {
+                    // lex string
+                    let delimiter = self.cur_char;
+                    loop {
+                        self.next();
+                        if self.cur_char == delimiter {
+                            self.next();
+                            self.end_token(TokenType::StringLiteral);
+                            break;
+                        }
+                        if self.cur_char == '\0' {
+                            self.end_token(TokenType::Invalid);
+                            break;
+                        }
+                    }
+                }
                 '=' => {
                     if self.next() != '=' {
                         self.end_token(TokenType::Assign);
