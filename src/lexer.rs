@@ -1,7 +1,7 @@
 use core::fmt;
 use std::{str::Chars, iter::Peekable, collections::HashMap};
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum TokenType {
     Identifier,
     StringLiteral,
