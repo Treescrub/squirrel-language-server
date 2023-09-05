@@ -234,7 +234,7 @@ impl<'a,'b> Lexer<'b> {
                     loop {
                         self.next();
                         match self.cur_char {
-                            'a'..='z' | 'A'..='Z' | '_' | '1'..='9' => (),
+                            'a'..='z' | 'A'..='Z' | '_' | '0'..='9' => (),
                             _ => {
                                 if self.keywords.contains_key(&self.cur_token_value) {
                                     self.end_token(self.keywords[&self.cur_token_value]);
