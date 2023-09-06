@@ -102,13 +102,26 @@ pub enum TokenType {
 pub struct Token {
     pub token_type: TokenType,
     pub value: String,
+    pub nvalue: i32,
     pub line: u32,
     pub column: u32,
 }
 
+impl Default for Token {
+    fn default() -> Self {
+        Self {
+            token_type: TokenType::Invalid,
+            value: String::new(),
+            nvalue: -1,
+            line: 0,
+            column: 0,
+        }
+    }
+}
+
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?} ({:?}) at line {:?} column {:?}", self.token_type, self.value, self.line, self.column)
+        write!(f, "{:?} ({:?}) at line {:?} column {:?} with nval {:?}", self.token_type, self.value, self.line, self.column, self.nvalue)
     }
 }
 
@@ -188,6 +201,18 @@ impl<'a,'b> Lexer<'b> {
             value: self.cur_token_value.clone(),
             line: self.line,
             column: self.column,
+            ..Default::default()
+        });
+    }
+
+    fn end_token_with_nval(&mut self, token_type: TokenType, nvalue: i32) {
+        self.tokens.push(Token {
+            token_type,
+            value: self.cur_token_value.clone(),
+            nvalue,
+            line: self.line,
+            column: self.column,
+            ..Default::default()
         });
     }
 
@@ -206,6 +231,18 @@ impl<'a,'b> Lexer<'b> {
 
     fn peek(&mut self) -> char {
         return *self.iter.peek().unwrap_or(&'\0');
+    }
+
+    fn is_digit(char: char) -> bool {
+        return char >= '0' && char <= '9';
+    }
+
+    fn is_octal(char: char) -> bool {
+        return char >= '0' && char <= '7';
+    }
+
+    fn is_hex(char: char) -> bool {
+        return (char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F');
     }
 
     pub fn lex(&mut self) {
@@ -244,6 +281,48 @@ impl<'a,'b> Lexer<'b> {
                                 break;
                             }
                         }
+                    }
+                }
+                '0'..='9' => {
+                    let first_char = self.cur_char;
+                    if first_char == '0' { // could be hex or octal
+                        self.next();
+                        if self.cur_char == 'x' || self.cur_char == 'X' {
+                            let mut digits = String::new();
+                            loop {
+                                self.next();
+                                if Self::is_hex(self.cur_char) {
+                                    digits.push(self.cur_char);
+                                } else {
+                                    let nvalue = i32::from_str_radix(&digits, 16).unwrap(); // TODO: deal with overflow
+                                    self.end_token_with_nval(TokenType::IntegerLiteral, nvalue);
+                                    break;
+                                }
+                            }
+                        } else if Self::is_octal(self.cur_char) {
+                            let mut digits = String::new();
+                            digits.push(self.cur_char);
+                            loop {
+                                self.next();
+                                if Self::is_octal(self.cur_char) {
+                                    digits.push(self.cur_char);
+                                } else {
+                                    if Self::is_digit(self.cur_char) {
+                                        self.end_token(TokenType::Invalid);
+                                        break;
+                                    }
+                                    let nvalue = i32::from_str_radix(&digits, 8).unwrap(); // TODO: deal with overflow
+                                    self.end_token_with_nval(TokenType::IntegerLiteral, nvalue);
+                                    break;
+                                }
+                            }
+                        } else {
+                            self.end_token_with_nval(TokenType::IntegerLiteral, 0);
+                        }
+                    } else {
+                        while Self::is_digit(self.next()) {}
+                        let nvalue: i32 = self.cur_token_value.parse().unwrap(); // TODO: deal with overflow
+                        self.end_token_with_nval(TokenType::IntegerLiteral, nvalue);
                     }
                 }
                 '\'' | '"' => {
