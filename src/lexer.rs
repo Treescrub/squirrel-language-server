@@ -245,6 +245,81 @@ impl<'a,'b> Lexer<'b> {
         return (char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F');
     }
 
+    fn lexIdentifier(&mut self) {
+        loop {
+            self.next();
+            match self.cur_char {
+                'a'..='z' | 'A'..='Z' | '_' | '0'..='9' => (),
+                _ => {
+                    if self.keywords.contains_key(&self.cur_token_value) {
+                        self.end_token(self.keywords[&self.cur_token_value]);
+                    } else {
+                        self.end_token(TokenType::Identifier);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    fn lexString(&mut self) {
+        let delimiter = self.cur_char;
+        loop {
+            self.next();
+            if self.cur_char == delimiter {
+                self.end_token_on_next(TokenType::StringLiteral);
+                break;
+            }
+            if self.cur_char == '\0' {
+                self.end_token(TokenType::Invalid);
+                break;
+            }
+        }
+    }
+
+    fn lexNumber(&mut self) {
+        let first_char = self.cur_char;
+        if first_char == '0' { // could be hex or octal
+            self.next();
+            if self.cur_char == 'x' || self.cur_char == 'X' {
+                let mut digits = String::new();
+                loop {
+                    self.next();
+                    if Self::is_hex(self.cur_char) {
+                        digits.push(self.cur_char);
+                    } else {
+                        let nvalue = i32::from_str_radix(&digits, 16).unwrap(); // TODO: deal with overflow
+                        self.end_token_with_nval(TokenType::IntegerLiteral, nvalue);
+                        break;
+                    }
+                }
+            } else if Self::is_octal(self.cur_char) {
+                let mut digits = String::new();
+                digits.push(self.cur_char);
+                loop {
+                    self.next();
+                    if Self::is_octal(self.cur_char) {
+                        digits.push(self.cur_char);
+                    } else {
+                        if Self::is_digit(self.cur_char) {
+                            self.end_token(TokenType::Invalid);
+                            break;
+                        }
+                        let nvalue = i32::from_str_radix(&digits, 8).unwrap(); // TODO: deal with overflow
+                        self.end_token_with_nval(TokenType::IntegerLiteral, nvalue);
+                        break;
+                    }
+                }
+            } else {
+                self.end_token_with_nval(TokenType::IntegerLiteral, 0);
+            }
+        } else {
+            while Self::is_digit(self.next()) {}
+            let nvalue: i32 = self.cur_token_value.parse().unwrap(); // TODO: deal with overflow
+            self.end_token_with_nval(TokenType::IntegerLiteral, nvalue);
+        }
+    }
+
     pub fn lex(&mut self) {
         self.next();
 
@@ -267,78 +342,13 @@ impl<'a,'b> Lexer<'b> {
             
             match self.cur_char {
                 'a'..='z' | 'A'..='Z' => {
-                    // lex identifier/keyword
-                    loop {
-                        self.next();
-                        match self.cur_char {
-                            'a'..='z' | 'A'..='Z' | '_' | '0'..='9' => (),
-                            _ => {
-                                if self.keywords.contains_key(&self.cur_token_value) {
-                                    self.end_token(self.keywords[&self.cur_token_value]);
-                                } else {
-                                    self.end_token(TokenType::Identifier);
-                                }
-                                break;
-                            }
-                        }
-                    }
+                    self.lexIdentifier();
                 }
                 '0'..='9' => {
-                    let first_char = self.cur_char;
-                    if first_char == '0' { // could be hex or octal
-                        self.next();
-                        if self.cur_char == 'x' || self.cur_char == 'X' {
-                            let mut digits = String::new();
-                            loop {
-                                self.next();
-                                if Self::is_hex(self.cur_char) {
-                                    digits.push(self.cur_char);
-                                } else {
-                                    let nvalue = i32::from_str_radix(&digits, 16).unwrap(); // TODO: deal with overflow
-                                    self.end_token_with_nval(TokenType::IntegerLiteral, nvalue);
-                                    break;
-                                }
-                            }
-                        } else if Self::is_octal(self.cur_char) {
-                            let mut digits = String::new();
-                            digits.push(self.cur_char);
-                            loop {
-                                self.next();
-                                if Self::is_octal(self.cur_char) {
-                                    digits.push(self.cur_char);
-                                } else {
-                                    if Self::is_digit(self.cur_char) {
-                                        self.end_token(TokenType::Invalid);
-                                        break;
-                                    }
-                                    let nvalue = i32::from_str_radix(&digits, 8).unwrap(); // TODO: deal with overflow
-                                    self.end_token_with_nval(TokenType::IntegerLiteral, nvalue);
-                                    break;
-                                }
-                            }
-                        } else {
-                            self.end_token_with_nval(TokenType::IntegerLiteral, 0);
-                        }
-                    } else {
-                        while Self::is_digit(self.next()) {}
-                        let nvalue: i32 = self.cur_token_value.parse().unwrap(); // TODO: deal with overflow
-                        self.end_token_with_nval(TokenType::IntegerLiteral, nvalue);
-                    }
+                    self.lexNumber();
                 }
                 '\'' | '"' => {
-                    // lex string
-                    let delimiter = self.cur_char;
-                    loop {
-                        self.next();
-                        if self.cur_char == delimiter {
-                            self.end_token_on_next(TokenType::StringLiteral);
-                            break;
-                        }
-                        if self.cur_char == '\0' {
-                            self.end_token(TokenType::Invalid);
-                            break;
-                        }
-                    }
+                    self.lexString();
                 }
                 '=' => {
                     if self.next() != '=' {
