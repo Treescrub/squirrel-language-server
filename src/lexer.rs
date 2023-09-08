@@ -245,7 +245,7 @@ impl<'a,'b> Lexer<'b> {
         return (char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F');
     }
 
-    fn lexIdentifier(&mut self) {
+    fn lex_identifier(&mut self) {
         loop {
             self.next();
             match self.cur_char {
@@ -262,7 +262,7 @@ impl<'a,'b> Lexer<'b> {
         }
     }
 
-    fn lexString(&mut self) {
+    fn lex_string(&mut self) {
         let delimiter = self.cur_char;
         loop {
             self.next();
@@ -277,7 +277,7 @@ impl<'a,'b> Lexer<'b> {
         }
     }
 
-    fn lexNumber(&mut self) {
+    fn lex_number(&mut self) {
         let first_char = self.cur_char;
         if first_char == '0' { // could be hex or octal
             self.next();
@@ -342,13 +342,13 @@ impl<'a,'b> Lexer<'b> {
             
             match self.cur_char {
                 'a'..='z' | 'A'..='Z' => {
-                    self.lexIdentifier();
+                    self.lex_identifier();
                 }
                 '0'..='9' => {
-                    self.lexNumber();
+                    self.lex_number();
                 }
                 '\'' | '"' => {
-                    self.lexString();
+                    self.lex_string();
                 }
                 '=' => {
                     if self.next() != '=' {
