@@ -102,8 +102,8 @@ pub enum TokenType {
 pub struct Token {
     pub token_type: TokenType,
     pub value: String,
-    pub nvalue: i32,
-    pub fvalue: f32,
+    pub nvalue: Option<i32>,
+    pub fvalue: Option<f32>,
     pub line: u32,
     pub column: u32,
 }
@@ -113,8 +113,8 @@ impl Default for Token {
         Self {
             token_type: TokenType::Invalid,
             value: String::new(),
-            nvalue: -1,
-            fvalue: f32::NEG_INFINITY,
+            nvalue: None,
+            fvalue: None,
             line: 0,
             column: 0,
         }
@@ -123,7 +123,15 @@ impl Default for Token {
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?} ({:?}) at line {:?} column {:?}, nval {:?}, fval {:?}", self.token_type, self.value, self.line, self.column, self.nvalue, self.fvalue)
+        write!(f, "{:?} ({:?}) at line {:?} column {:?}", self.token_type, self.value, self.line, self.column)?;
+        if self.nvalue.is_some() {
+            write!(f, ", nval {:?}", self.nvalue.unwrap())?;
+        }
+        if self.fvalue.is_some() {
+            write!(f, ", fval {:?}", self.fvalue.unwrap())?;
+        }
+        
+        Ok(())
     }
 }
 
@@ -198,9 +206,15 @@ impl<'a,'b> Lexer<'b> {
     }
 
     fn end_token(&mut self, token_type: TokenType) {
+        self.end_token_full(token_type, None, None);
+    }
+
+    fn end_token_full(&mut self, token_type: TokenType, nvalue: Option<i32>, fvalue: Option<f32>) {
         self.tokens.push(Token {
             token_type,
             value: self.cur_token_value.clone(),
+            nvalue: nvalue,
+            fvalue: fvalue,
             line: self.line,
             column: self.column,
             ..Default::default()
@@ -210,27 +224,13 @@ impl<'a,'b> Lexer<'b> {
     fn end_bad_token(&mut self) {
         self.end_token(TokenType::Invalid);
     }
-    
+
     fn end_token_with_nval(&mut self, token_type: TokenType, nvalue: i32) {
-        self.tokens.push(Token {
-            token_type,
-            value: self.cur_token_value.clone(),
-            nvalue,
-            line: self.line,
-            column: self.column,
-            ..Default::default()
-        });
+        self.end_token_full(token_type, Some(nvalue), None);
     }
 
     fn end_token_with_fval(&mut self, token_type: TokenType, fvalue: f32) {
-        self.tokens.push(Token {
-            token_type,
-            value: self.cur_token_value.clone(),
-            fvalue,
-            line: self.line,
-            column: self.column,
-            ..Default::default()
-        });
+        self.end_token_full(token_type, None, Some(fvalue));
     }
     
     fn end_token_on_next(&mut self, token_type: TokenType) {
