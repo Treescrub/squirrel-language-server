@@ -104,8 +104,7 @@ pub struct Token {
     pub value: String,
     pub nvalue: Option<i32>,
     pub fvalue: Option<f32>,
-    pub line: u32,
-    pub column: u32,
+    pub range: TokenRange,
 }
 
 impl Default for Token {
@@ -115,23 +114,56 @@ impl Default for Token {
             value: String::new(),
             nvalue: None,
             fvalue: None,
-            line: 0,
-            column: 0,
+            range: TokenRange::new(),
         }
     }
 }
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?} ({:?}) at line {:?} column {:?}", self.token_type, self.value, self.line, self.column)?;
+        write!(f, "{:?} ({:?}) at [{:?}:{:?}, {:?}:{:?})", 
+            self.token_type, self.value,
+            self.range.start.line, self.range.start.column,
+            self.range.end.line, self.range.end.column)?;
+        
         if self.nvalue.is_some() {
             write!(f, ", nval {:?}", self.nvalue.unwrap())?;
         }
         if self.fvalue.is_some() {
             write!(f, ", fval {:?}", self.fvalue.unwrap())?;
         }
-        
+
         Ok(())
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct TokenLocation {
+    line: u32,
+    column: u32,
+}
+
+impl TokenLocation {
+    pub fn new() -> Self {
+        Self {
+            line: 0,
+            column: 0,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct TokenRange {
+    start: TokenLocation,
+    end: TokenLocation,
+}
+
+impl TokenRange {
+    pub fn new() -> Self {
+        Self {
+            start: TokenLocation::new(),
+            end: TokenLocation::new(),
+        }
     }
 }
 
@@ -139,6 +171,7 @@ pub struct Lexer<'a> {
     iter: Peekable<Chars<'a>>,
     line: u32,
     column: u32,
+    token_start_location: TokenLocation,
     cur_char: char,
     cur_token_value: String,
     pub tokens: Vec<Token>,
@@ -151,6 +184,7 @@ impl<'a,'b> Lexer<'b> {
             iter: data.chars().peekable(),
             line: 1,
             column: 0,
+            token_start_location: TokenLocation::new(),
             cur_char: '\0',
             cur_token_value: String::from(""),
             tokens: Vec::<Token>::new(),
@@ -203,6 +237,10 @@ impl<'a,'b> Lexer<'b> {
 
     fn start_token(&mut self) {
         self.cur_token_value = String::from("");
+        self.token_start_location = TokenLocation {
+            line: self.line,
+            column: self.column,
+        }
     }
 
     fn end_token(&mut self, token_type: TokenType) {
@@ -215,8 +253,12 @@ impl<'a,'b> Lexer<'b> {
             value: self.cur_token_value.clone(),
             nvalue: nvalue,
             fvalue: fvalue,
-            line: self.line,
-            column: self.column,
+            range: TokenRange {
+                start: self.token_start_location,
+                end: TokenLocation {
+                    line: self.line, column: self.column
+                },
+            },
             ..Default::default()
         });
     }
