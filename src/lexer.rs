@@ -123,7 +123,7 @@ impl Default for Token {
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?} ({:?}) at line {:?} column {:?} with nval {:?}", self.token_type, self.value, self.line, self.column, self.nvalue)
+        write!(f, "{:?} ({:?}) at line {:?} column {:?}, nval {:?}, fval {:?}", self.token_type, self.value, self.line, self.column, self.nvalue, self.fvalue)
     }
 }
 
@@ -384,8 +384,11 @@ impl<'a,'b> Lexer<'b> {
                 }
             }
             NumberType::Scientific => {
-                self.end_bad_token();
-                // Need to do some preliminary parsing to match C++ strtod function (stops parsing on reaching second dot or out of position exponent)
+                // TODO: parse scientific notation the same way as C++ strtod
+                match parse_chars.parse() {
+                    Ok(val) => self.end_token_with_fval(TokenType::FloatLiteral, val),
+                    Err(_) => self.end_bad_token()
+                }
             }
         }
     }
