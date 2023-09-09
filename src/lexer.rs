@@ -103,6 +103,7 @@ pub struct Token {
     pub token_type: TokenType,
     pub value: String,
     pub nvalue: i32,
+    pub fvalue: f32,
     pub line: u32,
     pub column: u32,
 }
@@ -113,6 +114,7 @@ impl Default for Token {
             token_type: TokenType::Invalid,
             value: String::new(),
             nvalue: -1,
+            fvalue: f32::NEG_INFINITY,
             line: 0,
             column: 0,
         }
@@ -216,6 +218,17 @@ impl<'a,'b> Lexer<'b> {
         });
     }
 
+    fn end_token_with_fval(&mut self, token_type: TokenType, fvalue: f32) {
+        self.tokens.push(Token {
+            token_type,
+            value: self.cur_token_value.clone(),
+            fvalue,
+            line: self.line,
+            column: self.column,
+            ..Default::default()
+        });
+    }
+
     fn next(&mut self) -> char {
         self.cur_token_value.push(self.cur_char);
         self.cur_char = self.iter.next().unwrap_or('\0');
@@ -243,6 +256,10 @@ impl<'a,'b> Lexer<'b> {
 
     fn is_hex(char: char) -> bool {
         return (char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F');
+    }
+
+    fn is_exponent(char: char) -> bool {
+        return char == 'e' || char == 'E';
     }
 
     fn lex_identifier(&mut self) {
@@ -278,45 +295,98 @@ impl<'a,'b> Lexer<'b> {
     }
 
     fn lex_number(&mut self) {
+        enum NumberType {
+            Int,
+            Hex,
+            Octal,
+            Float,
+            Scientific,
+        }
+
+        let mut num_type: NumberType = NumberType::Int;
         let first_char = self.cur_char;
-        if first_char == '0' { // could be hex or octal
-            self.next();
-            if self.cur_char == 'x' || self.cur_char == 'X' {
-                let mut digits = String::new();
-                loop {
-                    self.next();
-                    if Self::is_hex(self.cur_char) {
-                        digits.push(self.cur_char);
-                    } else {
-                        let nvalue = i32::from_str_radix(&digits, 16).unwrap(); // TODO: deal with overflow
-                        self.end_token_with_nval(TokenType::IntegerLiteral, nvalue);
-                        break;
-                    }
+        let mut parse_chars = String::new();
+        self.next();
+        if first_char == '0' && (self.cur_char.to_ascii_uppercase() == 'X' || Self::is_octal(self.cur_char))  { // could be hex or octal
+            if self.cur_char.to_ascii_uppercase() == 'X' {
+                num_type = NumberType::Hex;
+
+                while Self::is_hex(self.next()) {
+                    parse_chars.push(self.cur_char);
                 }
             } else if Self::is_octal(self.cur_char) {
-                let mut digits = String::new();
-                digits.push(self.cur_char);
-                loop {
-                    self.next();
-                    if Self::is_octal(self.cur_char) {
-                        digits.push(self.cur_char);
-                    } else {
-                        if Self::is_digit(self.cur_char) {
-                            self.end_token(TokenType::Invalid);
-                            break;
-                        }
-                        let nvalue = i32::from_str_radix(&digits, 8).unwrap(); // TODO: deal with overflow
-                        self.end_token_with_nval(TokenType::IntegerLiteral, nvalue);
-                        break;
-                    }
+                num_type = NumberType::Octal;
+                
+                parse_chars.push(self.cur_char);
+                while Self::is_octal(self.next()) {
+                    parse_chars.push(self.cur_char);
                 }
-            } else {
-                self.end_token_with_nval(TokenType::IntegerLiteral, 0);
+
+                if Self::is_digit(self.cur_char) { // non octal digit encountered
+                    self.end_token(TokenType::Invalid);
+                    return;
+                }
             }
         } else {
-            while Self::is_digit(self.next()) {}
-            let nvalue: i32 = self.cur_token_value.parse().unwrap(); // TODO: deal with overflow
-            self.end_token_with_nval(TokenType::IntegerLiteral, nvalue);
+            parse_chars.push(first_char);
+
+            while self.cur_char == '.' || Self::is_digit(self.cur_char) || Self::is_exponent(self.cur_char) {
+                if self.cur_char == '.' || Self::is_exponent(self.cur_char) {
+                    num_type = NumberType::Float;
+                }
+
+                if Self::is_exponent(self.cur_char) {
+                    num_type = NumberType::Scientific;
+
+                    parse_chars.push(self.cur_char);
+                    self.next();
+
+                    if self.cur_char == '+' || self.cur_char == '-' {
+                        parse_chars.push(self.cur_char);
+                        self.next();
+                    }
+
+                    if !Self::is_digit(self.cur_char) {
+                        self.end_token(TokenType::Invalid);
+                        return;
+                    }
+                }
+
+                parse_chars.push(self.cur_char);
+                self.next();
+            }
+        }
+
+        match num_type {
+            NumberType::Int => {
+                match parse_chars.parse() {
+                    Ok(val) => self.end_token_with_nval(TokenType::IntegerLiteral, val),
+                    Err(_) => self.end_token(TokenType::Invalid)
+                }
+                
+            }
+            NumberType::Hex => {
+                match i32::from_str_radix(&parse_chars, 16) {
+                    Ok(val) => self.end_token_with_nval(TokenType::IntegerLiteral, val),
+                    Err(_) => self.end_token(TokenType::Invalid)
+                }
+            }
+            NumberType::Octal => {
+                match i32::from_str_radix(&parse_chars, 8) {
+                    Ok(val) => self.end_token_with_nval(TokenType::IntegerLiteral, val),
+                    Err(_) => self.end_token(TokenType::Invalid)
+                }
+            }
+            NumberType::Float => {
+                match parse_chars.parse() {
+                    Ok(val) => self.end_token_with_fval(TokenType::FloatLiteral, val),
+                    Err(_) => self.end_token(TokenType::Invalid)
+                }
+            }
+            NumberType::Scientific => {
+                self.end_token(TokenType::Invalid);
+                // Need to do some preliminary parsing to match C++ strtod function (stops parsing on reaching second dot or out of position exponent)
+            }
         }
     }
 
