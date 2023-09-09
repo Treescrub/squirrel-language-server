@@ -283,6 +283,10 @@ impl<'a,'b> Lexer<'b> {
     fn next(&mut self) -> char {
         self.cur_token_value.push(self.cur_char);
         self.cur_char = self.iter.next().unwrap_or('\0');
+        if self.cur_char == '\n' {
+            self.line += 1;
+            self.column = 0;
+        }
         self.column += 1;
 
         return self.cur_char;
@@ -448,8 +452,6 @@ impl<'a,'b> Lexer<'b> {
             }
             if self.cur_char == '\n' {
                 self.next();
-                self.line += 1;
-                self.column = 1;
                 continue;
             }
 
@@ -497,8 +499,32 @@ impl<'a,'b> Lexer<'b> {
                         '>' => {
                             self.end_token_on_next(TokenType::AttributeClose);
                         }
+                        '/' => { // single line comment
+                            loop {
+                                self.next();
+                                if self.cur_char == '\n' || self.cur_char == '\0' {
+                                    break;
+                                }
+                            }
+                        }
+                        '*' => { // multi line comment
+                            loop {
+                                if self.next() == '*' && self.next() == '/' {
+                                    self.next();
+                                    break;
+                                }
+                            }
+                        }
                         _ => {
                             self.end_token(TokenType::Divide);
+                        }
+                    }
+                }
+                '#' => {
+                    loop {
+                        self.next();
+                        if self.cur_char == '\n' || self.cur_char == '\0' {
+                            break;
                         }
                     }
                 }
