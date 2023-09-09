@@ -207,6 +207,10 @@ impl<'a,'b> Lexer<'b> {
         });
     }
 
+    fn end_bad_token(&mut self) {
+        self.end_token(TokenType::Invalid);
+    }
+    
     fn end_token_with_nval(&mut self, token_type: TokenType, nvalue: i32) {
         self.tokens.push(Token {
             token_type,
@@ -228,22 +232,18 @@ impl<'a,'b> Lexer<'b> {
             ..Default::default()
         });
     }
-
+    
+    fn end_token_on_next(&mut self, token_type: TokenType) {
+        self.next();
+        self.end_token(token_type);
+    }
+    
     fn next(&mut self) -> char {
         self.cur_token_value.push(self.cur_char);
         self.cur_char = self.iter.next().unwrap_or('\0');
         self.column += 1;
 
         return self.cur_char;
-    }
-
-    fn end_token_on_next(&mut self, token_type: TokenType) {
-        self.next();
-        self.end_token(token_type);
-    }
-
-    fn peek(&mut self) -> char {
-        return *self.iter.peek().unwrap_or(&'\0');
     }
 
     fn is_digit(char: char) -> bool {
@@ -288,7 +288,7 @@ impl<'a,'b> Lexer<'b> {
                 break;
             }
             if self.cur_char == '\0' {
-                self.end_token(TokenType::Invalid);
+                self.end_bad_token();
                 break;
             }
         }
@@ -323,7 +323,7 @@ impl<'a,'b> Lexer<'b> {
                 }
 
                 if Self::is_digit(self.cur_char) { // non octal digit encountered
-                    self.end_token(TokenType::Invalid);
+                    self.end_bad_token();
                     return;
                 }
             }
@@ -347,7 +347,7 @@ impl<'a,'b> Lexer<'b> {
                     }
 
                     if !Self::is_digit(self.cur_char) {
-                        self.end_token(TokenType::Invalid);
+                        self.end_bad_token();
                         return;
                     }
                 }
@@ -361,30 +361,30 @@ impl<'a,'b> Lexer<'b> {
             NumberType::Int => {
                 match parse_chars.parse() {
                     Ok(val) => self.end_token_with_nval(TokenType::IntegerLiteral, val),
-                    Err(_) => self.end_token(TokenType::Invalid)
+                    Err(_) => self.end_bad_token()
                 }
                 
             }
             NumberType::Hex => {
                 match i32::from_str_radix(&parse_chars, 16) {
                     Ok(val) => self.end_token_with_nval(TokenType::IntegerLiteral, val),
-                    Err(_) => self.end_token(TokenType::Invalid)
+                    Err(_) => self.end_bad_token()
                 }
             }
             NumberType::Octal => {
                 match i32::from_str_radix(&parse_chars, 8) {
                     Ok(val) => self.end_token_with_nval(TokenType::IntegerLiteral, val),
-                    Err(_) => self.end_token(TokenType::Invalid)
+                    Err(_) => self.end_bad_token()
                 }
             }
             NumberType::Float => {
                 match parse_chars.parse() {
                     Ok(val) => self.end_token_with_fval(TokenType::FloatLiteral, val),
-                    Err(_) => self.end_token(TokenType::Invalid)
+                    Err(_) => self.end_bad_token()
                 }
             }
             NumberType::Scientific => {
-                self.end_token(TokenType::Invalid);
+                self.end_bad_token();
                 // Need to do some preliminary parsing to match C++ strtod function (stops parsing on reaching second dot or out of position exponent)
             }
         }
@@ -604,7 +604,7 @@ impl<'a,'b> Lexer<'b> {
                         continue;
                     }
                     if self.next() != '.' {
-                        self.end_token(TokenType::Invalid);
+                        self.end_bad_token();
                         continue;
                     }
                     self.end_token_on_next(TokenType::Varargs);
