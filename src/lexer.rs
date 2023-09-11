@@ -101,9 +101,10 @@ pub enum TokenType {
 #[derive(Debug)]
 pub struct Token {
     pub token_type: TokenType,
-    pub value: String,
+    pub text: String,
     pub nvalue: Option<i32>,
     pub fvalue: Option<f32>,
+    pub svalue: Option<String>,
     pub range: TokenRange,
 }
 
@@ -111,9 +112,10 @@ impl Default for Token {
     fn default() -> Self {
         Self {
             token_type: TokenType::Invalid,
-            value: String::new(),
+            text: String::new(),
             nvalue: None,
             fvalue: None,
+            svalue: None,
             range: TokenRange::new(),
         }
     }
@@ -122,7 +124,7 @@ impl Default for Token {
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?} ({:?}) at [{:?}:{:?}, {:?}:{:?})", 
-            self.token_type, self.value,
+            self.token_type, self.text,
             self.range.start.line, self.range.start.column,
             self.range.end.line, self.range.end.column)?;
         
@@ -131,6 +133,9 @@ impl fmt::Display for Token {
         }
         if self.fvalue.is_some() {
             write!(f, ", fval {:?}", self.fvalue.unwrap())?;
+        }
+        if self.svalue.is_some() {
+            write!(f, ", sval {:?}", self.svalue.as_ref().unwrap())?;
         }
 
         Ok(())
@@ -244,15 +249,16 @@ impl<'a,'b> Lexer<'b> {
     }
 
     fn end_token(&mut self, token_type: TokenType) {
-        self.end_token_full(token_type, None, None);
+        self.end_token_full(token_type, None, None, None);
     }
 
-    fn end_token_full(&mut self, token_type: TokenType, nvalue: Option<i32>, fvalue: Option<f32>) {
+    fn end_token_full(&mut self, token_type: TokenType, nvalue: Option<i32>, fvalue: Option<f32>, svalue: Option<String>) {
         self.tokens.push(Token {
             token_type,
-            value: self.cur_token_value.clone(),
-            nvalue: nvalue,
-            fvalue: fvalue,
+            text: self.cur_token_value.clone(),
+            nvalue,
+            fvalue,
+            svalue,
             range: TokenRange {
                 start: self.token_start_location,
                 end: TokenLocation {
@@ -268,11 +274,15 @@ impl<'a,'b> Lexer<'b> {
     }
 
     fn end_token_with_nval(&mut self, token_type: TokenType, nvalue: i32) {
-        self.end_token_full(token_type, Some(nvalue), None);
+        self.end_token_full(token_type, Some(nvalue), None, None);
     }
 
     fn end_token_with_fval(&mut self, token_type: TokenType, fvalue: f32) {
-        self.end_token_full(token_type, None, Some(fvalue));
+        self.end_token_full(token_type, None, Some(fvalue), None);
+    }
+
+    fn end_token_with_sval(&mut self, token_type: TokenType, svalue: String) {
+        self.end_token_full(token_type, None, None, Some(svalue));
     }
     
     fn end_token_on_next(&mut self, token_type: TokenType) {
@@ -330,7 +340,8 @@ impl<'a,'b> Lexer<'b> {
         loop {
             self.next();
             if self.cur_char == delimiter {
-                self.end_token_on_next(TokenType::StringLiteral);
+                self.next();
+                self.end_token_with_sval(TokenType::StringLiteral, self.cur_token_value.clone());
                 break;
             }
             if self.cur_char == '\0' {
