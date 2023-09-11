@@ -336,21 +336,45 @@ impl<'a,'b> Lexer<'b> {
     }
 
     fn lex_string(&mut self) {
+        let mut verbatim = false;
+        if self.cur_char == '@' {
+            verbatim = true;
+            self.next();
+            if self.cur_char != '\'' && self.cur_char != '"' {
+                self.end_bad_token();
+                return;
+            }
+        }
 
-
+        let mut fail_at_end = false;
+        let mut svalue = String::new();
         let delimiter = self.cur_char;
         loop {
             self.next();
+            if self.cur_char == '\n' && !verbatim {
+                // still consume tokens up to ending delimiter
+                fail_at_end = true;
+            }
             if self.cur_char == delimiter {
                 self.next();
-                self.end_token_with_sval(TokenType::StringLiteral, self.cur_token_text.clone());
+
+                if fail_at_end || (delimiter == '\'' && svalue.len() != 1) {
+                    self.end_bad_token();
+                } else {
+                    self.end_token_with_sval(TokenType::StringLiteral, svalue);
+                }
+
                 break;
             }
             if self.cur_char == '\0' {
                 self.end_bad_token();
                 break;
             }
+
+            svalue.push(self.cur_char);
         }
+
+
     }
 
     fn lex_number(&mut self) {
@@ -477,7 +501,7 @@ impl<'a,'b> Lexer<'b> {
                 '0'..='9' => {
                     self.lex_number();
                 }
-                '\'' | '"' => {
+                '\'' | '"' | '@' => {
                     self.lex_string();
                 }
                 '=' => {
