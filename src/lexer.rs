@@ -62,10 +62,6 @@ pub enum TokenType {
     MultiplyEqual,          // *=
     DivideEqual,            // /=
     ModuloEqual,            // %=
-    AndEqual,               // &=
-    OrEqual,                // |=
-    XorEqual,               // ^=
-    BitwiseNotEqual,        // ~=
     ShiftLeft,              // <<
     ShiftRight,             // >>
     PlusPlus,               // ++
@@ -577,9 +573,6 @@ impl<'a,'b> Lexer<'b> {
                 }
                 '&' => {
                     match self.next() {
-                        '=' => {
-                            self.end_token_on_next(TokenType::AndEqual);
-                        }
                         '&' => {
                             self.end_token_on_next(TokenType::LogicalAnd);
                         }
@@ -590,9 +583,6 @@ impl<'a,'b> Lexer<'b> {
                 }
                 '|' => {
                     match self.next() {
-                        '=' => {
-                            self.end_token_on_next(TokenType::OrEqual);
-                        }
                         '|' => {
                             self.end_token_on_next(TokenType::LogicalOr);
                         }
@@ -603,9 +593,6 @@ impl<'a,'b> Lexer<'b> {
                 }
                 '^' => {
                     match self.next() {
-                        '=' => {
-                            self.end_token_on_next(TokenType::XorEqual);
-                        }
                         _ => {
                             self.end_token(TokenType::BitwiseXor);
                         }
@@ -613,9 +600,6 @@ impl<'a,'b> Lexer<'b> {
                 }
                 '~' => {
                     match self.next() {
-                        '=' => {
-                            self.end_token_on_next(TokenType::BitwiseNotEqual);
-                        }
                         _ => {
                             self.end_token(TokenType::BitwiseNot);
                         }
