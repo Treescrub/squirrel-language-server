@@ -1,4 +1,6 @@
 mod lexer;
+#[cfg(test)]
+mod tests;
 
 use serde_json::Value;
 use tower_lsp::jsonrpc::Result;
