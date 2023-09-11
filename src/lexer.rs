@@ -178,7 +178,7 @@ pub struct Lexer<'a> {
     column: u32,
     token_start_location: TokenLocation,
     cur_char: char,
-    cur_token_value: String,
+    cur_token_text: String,
     pub tokens: Vec<Token>,
     keywords: HashMap<String, TokenType>,
 }
@@ -191,7 +191,7 @@ impl<'a,'b> Lexer<'b> {
             column: 0,
             token_start_location: TokenLocation::new(),
             cur_char: '\0',
-            cur_token_value: String::from(""),
+            cur_token_text: String::from(""),
             tokens: Vec::<Token>::new(),
             keywords: Self::init_keywords(),
         }
@@ -241,7 +241,7 @@ impl<'a,'b> Lexer<'b> {
     }
 
     fn start_token(&mut self) {
-        self.cur_token_value = String::from("");
+        self.cur_token_text = String::from("");
         self.token_start_location = TokenLocation {
             line: self.line,
             column: self.column,
@@ -255,7 +255,7 @@ impl<'a,'b> Lexer<'b> {
     fn end_token_full(&mut self, token_type: TokenType, nvalue: Option<i32>, fvalue: Option<f32>, svalue: Option<String>) {
         self.tokens.push(Token {
             token_type,
-            text: self.cur_token_value.clone(),
+            text: self.cur_token_text.clone(),
             nvalue,
             fvalue,
             svalue,
@@ -291,7 +291,7 @@ impl<'a,'b> Lexer<'b> {
     }
     
     fn next(&mut self) -> char {
-        self.cur_token_value.push(self.cur_char);
+        self.cur_token_text.push(self.cur_char);
         self.cur_char = self.iter.next().unwrap_or('\0');
         if self.cur_char == '\n' {
             self.line += 1;
@@ -324,8 +324,8 @@ impl<'a,'b> Lexer<'b> {
             match self.cur_char {
                 'a'..='z' | 'A'..='Z' | '_' | '0'..='9' => (),
                 _ => {
-                    if self.keywords.contains_key(&self.cur_token_value) {
-                        self.end_token(self.keywords[&self.cur_token_value]);
+                    if self.keywords.contains_key(&self.cur_token_text) {
+                        self.end_token(self.keywords[&self.cur_token_text]);
                     } else {
                         self.end_token(TokenType::Identifier);
                     }
@@ -336,12 +336,14 @@ impl<'a,'b> Lexer<'b> {
     }
 
     fn lex_string(&mut self) {
+
+
         let delimiter = self.cur_char;
         loop {
             self.next();
             if self.cur_char == delimiter {
                 self.next();
-                self.end_token_with_sval(TokenType::StringLiteral, self.cur_token_value.clone());
+                self.end_token_with_sval(TokenType::StringLiteral, self.cur_token_text.clone());
                 break;
             }
             if self.cur_char == '\0' {
