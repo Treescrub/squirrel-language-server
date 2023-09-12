@@ -375,7 +375,20 @@ impl<'a,'b> Lexer<'b> {
                         }
                     }
                     'U' | 'u' => {
-                        // TODO: scary unicode
+                        let mut hex_digits = String::new();
+                        while Self::is_hex(self.next()) {
+                            hex_digits.push(self.cur_char);
+                        }
+
+                        if let Ok(value) = u32::from_str_radix(&hex_digits, 16) {
+                            if let Some(char) = char::from_u32(value) {
+                                svalue.push(char);
+                            } else {
+                                fail_at_end = true;
+                            }
+                        } else {
+                            fail_at_end = true;
+                        }
                     }
                     't' => svalue.push('\t'),
                     'a' => svalue.push('\x07'),
