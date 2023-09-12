@@ -351,6 +351,48 @@ impl<'a,'b> Lexer<'b> {
                 // still consume tokens up to ending delimiter
                 fail_at_end = true;
             }
+            if self.cur_char == '\\' {
+                if verbatim {
+                   svalue.push(self.cur_char);
+                   continue; 
+                }
+
+                match self.next() {
+                    'x' => {
+                        let mut hex_digits = String::new();
+                        while Self::is_hex(self.next()) {
+                            hex_digits.push(self.cur_char);
+                        }
+
+                        if let Ok(value) = u32::from_str_radix(&hex_digits, 16) {
+                            if let Some(char) = char::from_u32(value) {
+                                svalue.push(char);
+                            } else {
+                                fail_at_end = true;
+                            }
+                        } else {
+                            fail_at_end = true;
+                        }
+                    }
+                    'U' | 'u' => {
+                        // TODO: scary unicode
+                    }
+                    't' => svalue.push('\t'),
+                    'a' => svalue.push('\x07'),
+                    'b' => svalue.push('\x08'),
+                    'n' => svalue.push('\n'),
+                    'r' => svalue.push('\r'),
+                    'v' => svalue.push('\x0b'),
+                    'f' => svalue.push('\x0c'),
+                    '0' => svalue.push('\0'),
+                    '\\' => svalue.push('\\'),
+                    '"' => svalue.push('"'),
+                    '\'' => svalue.push('\''),
+                    _ => fail_at_end = true,
+                }
+
+                continue;
+            }
             if self.cur_char == delimiter {
                 self.next();
 
