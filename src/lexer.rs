@@ -546,15 +546,9 @@ impl<'a,'b> Lexer<'b> {
             self.start_token();
             
             match self.cur_char {
-                'a'..='z' | 'A'..='Z' => {
-                    self.lex_identifier();
-                }
-                '0'..='9' => {
-                    self.lex_number();
-                }
-                '\'' | '"' | '@' => {
-                    self.lex_string();
-                }
+                'a'..='z' | 'A'..='Z' => self.lex_identifier(),
+                '0'..='9' => self.lex_number(),
+                '\'' | '"' | '@' => self.lex_string(),
                 '=' => {
                     if self.next() != '=' {
                         self.end_token(TokenType::Assign);
@@ -571,22 +565,14 @@ impl<'a,'b> Lexer<'b> {
                 }
                 '*' => {
                     match self.next() {
-                        '=' => {
-                            self.end_token_on_next(TokenType::MultiplyEqual);
-                        }
-                        _ => {
-                            self.end_token(TokenType::Multiply);
-                        }
+                        '=' => self.end_token_on_next(TokenType::MultiplyEqual),
+                        _ => self.end_token(TokenType::Multiply),
                     }
                 }
                 '/' => {
                     match self.next() {
-                        '=' => {
-                            self.end_token_on_next(TokenType::DivideEqual);
-                        }
-                        '>' => {
-                            self.end_token_on_next(TokenType::AttributeClose);
-                        }
+                        '=' => self.end_token_on_next(TokenType::DivideEqual),
+                        '>' => self.end_token_on_next(TokenType::AttributeClose),
                         '/' => { // single line comment
                             loop {
                                 self.next();
@@ -603,9 +589,7 @@ impl<'a,'b> Lexer<'b> {
                                 }
                             }
                         }
-                        _ => {
-                            self.end_token(TokenType::Divide);
-                        }
+                        _ => self.end_token(TokenType::Divide),
                     }
                 }
                 '#' => {
@@ -618,48 +602,24 @@ impl<'a,'b> Lexer<'b> {
                 }
                 '%' => {
                     match self.next() {
-                        '=' => {
-                            self.end_token_on_next(TokenType::ModuloEqual);
-                        }
-                        _ => {
-                            self.end_token(TokenType::Modulo);
-                        }
+                        '=' => self.end_token_on_next(TokenType::ModuloEqual),
+                        _ => self.end_token(TokenType::Modulo),
                     }
                 }
                 '&' => {
                     match self.next() {
-                        '&' => {
-                            self.end_token_on_next(TokenType::LogicalAnd);
-                        }
-                        _ => {
-                            self.end_token(TokenType::BitwiseAnd);
-                        }
+                        '&' => self.end_token_on_next(TokenType::LogicalAnd),
+                        _ => self.end_token(TokenType::BitwiseAnd),
                     }
                 }
                 '|' => {
                     match self.next() {
-                        '|' => {
-                            self.end_token_on_next(TokenType::LogicalOr);
-                        }
-                        _ => {
-                            self.end_token(TokenType::BitwiseOr);
-                        }
+                        '|' => self.end_token_on_next(TokenType::LogicalOr),
+                        _ => self.end_token(TokenType::BitwiseOr),
                     }
                 }
-                '^' => {
-                    match self.next() {
-                        _ => {
-                            self.end_token(TokenType::BitwiseXor);
-                        }
-                    }
-                }
-                '~' => {
-                    match self.next() {
-                        _ => {
-                            self.end_token(TokenType::BitwiseNot);
-                        }
-                    }
-                }
+                '^' => self.end_token(TokenType::BitwiseXor),
+                '~' => self.end_token(TokenType::BitwiseNot),
                 '<' => {
                     match self.next() {
                         '=' => {
@@ -669,25 +629,15 @@ impl<'a,'b> Lexer<'b> {
                                 self.end_token(TokenType::LessOrEqual);
                             }
                         }
-                        '-' => {
-                            self.end_token_on_next(TokenType::Newslot);
-                        }
-                        '<' => {
-                            self.end_token_on_next(TokenType::ShiftLeft);
-                        }
-                        '/' => {
-                            self.end_token_on_next(TokenType::AttributeOpen);
-                        }
-                        _ => {
-                            self.end_token(TokenType::LessThan);
-                        }
+                        '-' => self.end_token_on_next(TokenType::Newslot),
+                        '<' => self.end_token_on_next(TokenType::ShiftLeft),
+                        '/' => self.end_token_on_next(TokenType::AttributeOpen),
+                        _ => self.end_token(TokenType::LessThan),
                     }
                 }
                 '>' => {
                     match self.next() {
-                        '=' => {
-                            self.end_token_on_next(TokenType::GreaterOrEqual);
-                        }
+                        '=' => self.end_token_on_next(TokenType::GreaterOrEqual),
                         '>' => {
                             if self.next() == '>' {
                                 self.end_token_on_next(TokenType::UnsignedShiftRight);
@@ -695,56 +645,32 @@ impl<'a,'b> Lexer<'b> {
                                 self.end_token(TokenType::ShiftRight);
                             }
                         }
-                        _ => {
-                            self.end_token_on_next(TokenType::GreaterThan);
-                        }
+                        _ => self.end_token_on_next(TokenType::GreaterThan),
                     }
                 }
                 '+' => {
                     match self.next() {
-                        '=' => {
-                            self.end_token_on_next(TokenType::PlusEqual);
-                        }
-                        '+' => {
-                            self.end_token_on_next(TokenType::PlusPlus);
-                        }
-                        _ => {
-                            self.end_token(TokenType::Plus);
-                        }
+                        '=' => self.end_token_on_next(TokenType::PlusEqual),
+                        '+' => self.end_token_on_next(TokenType::PlusPlus),
+                        _ => self.end_token(TokenType::Plus),
                     }
                 }
                 '-' => {
                     match self.next() {
-                        '=' => {
-                            self.end_token_on_next(TokenType::MinusEqual);
-                        }
-                        '-' => {
-                            self.end_token_on_next(TokenType::MinusMinus);
-                        }
-                        _ => {
-                            self.end_token(TokenType::Minus);
-                        }
+                        '=' => self.end_token_on_next(TokenType::MinusEqual),
+                        '-' => self.end_token_on_next(TokenType::MinusMinus),
+                        _ => self.end_token(TokenType::Minus),
                     }
                 }
                 ':' => {
                     match self.next() {
-                        ':' => {
-                            self.end_token_on_next(TokenType::DoubleColon);
-                        }
-                        _ => {
-                            self.end_token(TokenType::Colon);
-                        }
+                        ':' => self.end_token_on_next(TokenType::DoubleColon),
+                        _ => self.end_token(TokenType::Colon),
                     }
                 }
-                ';' => {
-                    self.end_token_on_next(TokenType::Semicolon);
-                }
-                ',' => {
-                    self.end_token_on_next(TokenType::Comma);
-                }
-                '?' => {
-                    self.end_token_on_next(TokenType::Ternary);
-                }
+                ';' => self.end_token_on_next(TokenType::Semicolon),
+                ',' => self.end_token_on_next(TokenType::Comma),
+                '?' => self.end_token_on_next(TokenType::Ternary),
                 '.' => {
                     if self.next() != '.' {
                         self.end_token(TokenType::Dot);
@@ -756,28 +682,13 @@ impl<'a,'b> Lexer<'b> {
                     }
                     self.end_token_on_next(TokenType::Varargs);
                 }
-                '(' => {
-                    self.end_token_on_next(TokenType::LeftParen);
-                }
-                ')' => {
-                    self.end_token_on_next(TokenType::RightParen);
-                }
-                '[' => {
-                    self.end_token_on_next(TokenType::LeftSquare);
-                }
-                ']' => {
-                    self.end_token_on_next(TokenType::RightSquare);
-                }
-                '{' => {
-                    self.end_token_on_next(TokenType::LeftCurly);
-                }
-                '}' => {
-                    self.end_token_on_next(TokenType::RightCurly);
-                }
-                _ => {
-                    self.end_token_on_next(TokenType::Invalid);
-                    continue;
-                }
+                '(' => self.end_token_on_next(TokenType::LeftParen),
+                ')' => self.end_token_on_next(TokenType::RightParen),
+                '[' => self.end_token_on_next(TokenType::LeftSquare),
+                ']' => self.end_token_on_next(TokenType::RightSquare),
+                '{' => self.end_token_on_next(TokenType::LeftCurly),
+                '}' => self.end_token_on_next(TokenType::RightCurly),
+                _ => self.end_token_on_next(TokenType::Invalid),
             }
         }
     }
