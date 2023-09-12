@@ -583,7 +583,11 @@ impl<'a,'b> Lexer<'b> {
                         }
                         '*' => { // multi line comment
                             loop {
-                                if self.next() == '*' && self.next() == '/' {
+                                self.next();
+                                if self.cur_char == '\0' {
+                                    break;
+                                }
+                                if self.cur_char == '*' && self.next() == '/' {
                                     self.next();
                                     break;
                                 }
