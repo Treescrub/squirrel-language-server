@@ -622,8 +622,8 @@ impl<'a,'b> Lexer<'b> {
                         _ => self.end_token(TokenType::BitwiseOr),
                     }
                 }
-                '^' => self.end_token(TokenType::BitwiseXor),
-                '~' => self.end_token(TokenType::BitwiseNot),
+                '^' => self.end_token_on_next(TokenType::BitwiseXor),
+                '~' => self.end_token_on_next(TokenType::BitwiseNot),
                 '<' => {
                     match self.next() {
                         '=' => {
