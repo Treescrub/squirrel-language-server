@@ -3,6 +3,7 @@ mod lexer;
 mod tests;
 
 use serde_json::Value;
+use tokio::sync::Mutex;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
@@ -11,6 +12,12 @@ use crate::lexer::Lexer;
 #[derive(Debug)]
 struct Backend {
     client: Client,
+    state: Mutex<State>,
+}
+
+#[derive(Debug)]
+struct State {
+    open_files: u32,
 }
 
 #[tower_lsp::async_trait]
@@ -102,6 +109,12 @@ impl LanguageServer for Backend {
         self.client
             .log_message(MessageType::INFO, "file opened!")
             .await;
+        
+        let mut state = self.state.lock().await;
+        state.open_files += 1;
+        self.client
+            .log_message(MessageType::INFO, format!("open files: {}", state.open_files))
+            .await;
     }
 
     async fn did_change(&self, _: DidChangeTextDocumentParams) {
@@ -119,6 +132,12 @@ impl LanguageServer for Backend {
     async fn did_close(&self, _: DidCloseTextDocumentParams) {
         self.client
             .log_message(MessageType::INFO, "file closed!")
+            .await;
+
+        let mut state = self.state.lock().await;
+        state.open_files -= 1;
+        self.client
+            .log_message(MessageType::INFO, format!("open files: {}", state.open_files))
             .await;
     }
 
@@ -141,6 +160,6 @@ async fn main() {
     #[cfg(feature = "runtime-agnostic")]
     let (stdin, stdout) = (stdin.compat(), stdout.compat_write());
 
-    let (service, socket) = LspService::new(|client| Backend { client });
+    let (service, socket) = LspService::new(|client| Backend { client, state: Mutex::new(State { open_files: 0 }) });
     Server::new(stdin, stdout, socket).serve(service).await;
 }
