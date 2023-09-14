@@ -1,7 +1,9 @@
 mod lexer;
 #[cfg(test)]
 mod tests;
+mod document_manager;
 
+use document_manager::DocumentManager;
 use serde_json::Value;
 use tokio::sync::Mutex;
 use tower_lsp::jsonrpc::Result;
@@ -18,6 +20,7 @@ struct Backend {
 #[derive(Debug)]
 struct State {
     open_files: u32,
+    doc_manager: DocumentManager,
 }
 
 #[tower_lsp::async_trait]
@@ -112,14 +115,24 @@ impl LanguageServer for Backend {
         
         let mut state = self.state.lock().await;
         state.open_files += 1;
+        state.doc_manager.set(&params.text_document.text);
+        self.client
+            .log_message(MessageType::INFO, &state.doc_manager.contents)
+            .await;
         self.client
             .log_message(MessageType::INFO, format!("open files: {}", state.open_files))
             .await;
     }
 
-    async fn did_change(&self, _: DidChangeTextDocumentParams) {
+    async fn did_change(&self, params: DidChangeTextDocumentParams) {
         self.client
-            .log_message(MessageType::INFO, "file changed!")
+        .log_message(MessageType::INFO, "file changed!")
+        .await;
+    
+        let mut state = self.state.lock().await;
+        state.doc_manager.edit(&params.content_changes[0].text, params.content_changes[0].range.unwrap());
+        self.client
+            .log_message(MessageType::INFO, &state.doc_manager.contents)
             .await;
     }
 
@@ -160,6 +173,6 @@ async fn main() {
     #[cfg(feature = "runtime-agnostic")]
     let (stdin, stdout) = (stdin.compat(), stdout.compat_write());
 
-    let (service, socket) = LspService::new(|client| Backend { client, state: Mutex::new(State { open_files: 0 }) });
+    let (service, socket) = LspService::new(|client| Backend { client, state: Mutex::new(State { open_files: 0, doc_manager: DocumentManager::new() }) });
     Server::new(stdin, stdout, socket).serve(service).await;
 }
