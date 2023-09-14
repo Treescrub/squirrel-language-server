@@ -299,15 +299,15 @@ impl<'a,'b> Lexer<'b> {
     }
 
     fn is_digit(char: char) -> bool {
-        return char >= '0' && char <= '9';
+        return ('0'..='9').contains(&char);
     }
 
     fn is_octal(char: char) -> bool {
-        return char >= '0' && char <= '7';
+        return ('0'..='7').contains(&char);
     }
 
     fn is_hex(char: char) -> bool {
-        return (char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F');
+        return ('0'..='9').contains(&char) || ('a'..='f').contains(&char) || ('A'..='F').contains(&char);
     }
 
     fn is_exponent(char: char) -> bool {
