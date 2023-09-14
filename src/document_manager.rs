@@ -1,36 +1,62 @@
-use tower_lsp::lsp_types::{Range as LspRange, Position};
+use std::collections::HashMap;
+
+use tower_lsp::lsp_types::{Range as LspRange, Position, Url};
 
 #[derive(Debug)]
 pub struct DocumentManager {
-    pub contents: String, // only supports one document right now
+    pub files: HashMap<String, String>,
 }
 
 impl DocumentManager {
     pub fn new() -> Self {
         Self {
-            contents: String::new(),
+            files: HashMap::new(),
         }
     }
 
-    pub fn set(&mut self, text: &str) {
-        self.contents = text.to_string();
+    pub fn open_file(&mut self, text: &str, uri: &Url) {
+        self.files.insert(uri.to_string(), text.to_string());
     }
 
-    pub fn edit(&mut self, text: &str, range: LspRange) {
-        let start_index = self.pos_to_index(range.start);
-        let end_index = self.pos_to_index(range.end);
+    pub fn edit_file(&mut self, text: &str, uri: &Url, range: LspRange) {
+        let start_index = self.pos_to_index(uri, range.start);
+        let end_index = self.pos_to_index(uri, range.end);
 
-        self.contents.replace_range(start_index..end_index, text);
+        if self.files.contains_key(&uri.to_string()) {
+            let mut contents = self.files[&uri.to_string()].clone();
+            contents.replace_range(start_index..end_index, text);
+            self.files.insert(uri.to_string(), contents);
+        }
     }
 
-    fn pos_to_index(&self, position: Position) -> usize {
+    pub fn close_file(&mut self, uri: &Url) {
+        self.files.remove(&uri.to_string());
+    }
+
+    pub fn total_open_files(&self) -> usize {
+        return self.files.len();
+    }
+
+    pub fn get(&self, uri: &Url) -> Option<&str> {
+        if !self.files.contains_key(&uri.to_string()) {
+            return None;
+        }
+
+        return Some(self.files[&uri.to_string()].as_str());
+    }
+
+    fn pos_to_index(&self, uri: &Url, position: Position) -> usize {
+        if !self.files.contains_key(&uri.to_string()) {
+            return 0;
+        }
+
         let target_line = position.line;
         let target_column = position.character;
         let mut char_index: usize = 0;
         let mut line: u32 = 0;
         let mut column: u32 = 0;
 
-        for char in self.contents.chars() {
+        for char in self.files[&uri.to_string()].chars() {
             if char == '\n' {
                 line += 1;
                 column = 0;

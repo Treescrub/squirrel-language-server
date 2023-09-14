@@ -19,7 +19,6 @@ struct Backend {
 
 #[derive(Debug)]
 struct State {
-    open_files: u32,
     doc_manager: DocumentManager,
 }
 
@@ -114,13 +113,12 @@ impl LanguageServer for Backend {
             .await;
         
         let mut state = self.state.lock().await;
-        state.open_files += 1;
-        state.doc_manager.set(&params.text_document.text);
+        state.doc_manager.open_file(&params.text_document.text, &params.text_document.uri);
         self.client
-            .log_message(MessageType::INFO, &state.doc_manager.contents)
+            .log_message(MessageType::INFO, format!("contents: {}", state.doc_manager.get(&params.text_document.uri).unwrap()))
             .await;
         self.client
-            .log_message(MessageType::INFO, format!("open files: {}", state.open_files))
+            .log_message(MessageType::INFO, format!("open files: {}", state.doc_manager.total_open_files()))
             .await;
     }
 
@@ -128,11 +126,13 @@ impl LanguageServer for Backend {
         self.client
         .log_message(MessageType::INFO, "file changed!")
         .await;
-    
+
         let mut state = self.state.lock().await;
-        state.doc_manager.edit(&params.content_changes[0].text, params.content_changes[0].range.unwrap());
+        for content_change in &params.content_changes {
+            state.doc_manager.edit_file(&content_change.text, &params.text_document.uri, content_change.range.unwrap());
+        }
         self.client
-            .log_message(MessageType::INFO, &state.doc_manager.contents)
+            .log_message(MessageType::INFO, format!("contents: {}", state.doc_manager.get(&params.text_document.uri).unwrap()))
             .await;
     }
 
@@ -142,15 +142,15 @@ impl LanguageServer for Backend {
             .await;
     }
 
-    async fn did_close(&self, _: DidCloseTextDocumentParams) {
+    async fn did_close(&self, params: DidCloseTextDocumentParams) {
         self.client
             .log_message(MessageType::INFO, "file closed!")
             .await;
 
         let mut state = self.state.lock().await;
-        state.open_files -= 1;
+        state.doc_manager.close_file(&params.text_document.uri);
         self.client
-            .log_message(MessageType::INFO, format!("open files: {}", state.open_files))
+            .log_message(MessageType::INFO, format!("open files: {}", state.doc_manager.total_open_files()))
             .await;
     }
 
@@ -173,6 +173,6 @@ async fn main() {
     #[cfg(feature = "runtime-agnostic")]
     let (stdin, stdout) = (stdin.compat(), stdout.compat_write());
 
-    let (service, socket) = LspService::new(|client| Backend { client, state: Mutex::new(State { open_files: 0, doc_manager: DocumentManager::new() }) });
+    let (service, socket) = LspService::new(|client| Backend { client, state: Mutex::new(State { doc_manager: DocumentManager::new() }) });
     Server::new(stdin, stdout, socket).serve(service).await;
 }
