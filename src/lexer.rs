@@ -299,7 +299,7 @@ impl<'a,'b> Lexer<'b> {
     }
 
     fn is_digit(char: char) -> bool {
-        return ('0'..='9').contains(&char);
+        return char.is_ascii_digit();
     }
 
     fn is_octal(char: char) -> bool {
@@ -307,7 +307,7 @@ impl<'a,'b> Lexer<'b> {
     }
 
     fn is_hex(char: char) -> bool {
-        return ('0'..='9').contains(&char) || ('a'..='f').contains(&char) || ('A'..='F').contains(&char);
+        return char.is_ascii_hexdigit();
     }
 
     fn is_exponent(char: char) -> bool {
