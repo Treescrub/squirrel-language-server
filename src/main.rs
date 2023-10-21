@@ -2,6 +2,8 @@ mod lexer;
 #[cfg(test)]
 mod tests;
 mod document_manager;
+mod parser;
+mod ast;
 
 use document_manager::DocumentManager;
 use serde_json::Value;
@@ -10,6 +12,7 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 use crate::lexer::Lexer;
+use crate::parser::Parser;
 
 #[derive(Debug)]
 struct Backend {
@@ -106,11 +109,14 @@ impl LanguageServer for Backend {
             tokens.push('\n');
         }
         self.client
-            .log_message(MessageType::INFO, format!("tokens:\n{}", tokens))
-            .await;
-        self.client
             .log_message(MessageType::INFO, "file opened!")
             .await;
+        self.client
+            .log_message(MessageType::INFO, format!("tokens:\n{}", tokens))
+            .await;
+        
+        let mut parser: Parser = Parser::new(&lexer.tokens, &self.client);
+        parser.parse();
         
         let mut state = self.state.lock().await;
         state.doc_manager.open_file(&params.text_document.text, &params.text_document.uri);

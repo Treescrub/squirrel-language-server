@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{str::Chars, iter::Peekable, collections::HashMap};
+use std::{str::Chars, iter::Peekable, collections::HashMap, fmt::Display};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum TokenType {
@@ -188,6 +188,12 @@ impl TokenType {
             TokenType::Invalid => "INVALID_TOKEN",
             
         }
+    }
+}
+
+impl Display for TokenType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        return write!(f, "{}", self.as_str());
     }
 }
 
