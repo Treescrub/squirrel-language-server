@@ -116,7 +116,7 @@ impl LanguageServer for Backend {
             .await;
         
         let mut parser: Parser = Parser::new(&lexer.tokens, &self.client);
-        parser.parse();
+        parser.parse().await;
         
         let mut state = self.state.lock().await;
         state.doc_manager.open_file(&params.text_document.text, &params.text_document.uri);

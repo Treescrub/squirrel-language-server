@@ -1,6 +1,6 @@
 use tower_lsp::Client;
 use tower_lsp::lsp_types::MessageType;
-use smol;
+use async_recursion::async_recursion;
 
 use crate::ast::*;
 use crate::lexer::*;
@@ -22,11 +22,11 @@ impl<'a> Parser<'a> {
         }
     }
     
-    pub fn parse(&mut self) {
+    pub async fn parse(&mut self) {
         let client = self.client;
 
-        smol::block_on(client.log_message(MessageType::LOG, "YEAH"));
-        // self.statement();
+        client.log_message(MessageType::LOG, "Starting parse").await;
+        self.statement().await;
     }
 
     fn next_token(&mut self) -> &'a Token {
@@ -43,31 +43,33 @@ impl<'a> Parser<'a> {
         return self.current_token().token_type;
     }
     
-    fn expect(&self, token_type: TokenType) {
+    async fn expect(&self, token_type: TokenType) {
         if self.current_token_type() != token_type {
-            smol::block_on(self.client
-            .log_message(MessageType::ERROR, format!("Expected token `{}`, got `{}`", token_type, self.current_token_type())));
+            self.client
+                .log_message(MessageType::ERROR, format!("Expected token `{}`, got `{}`", token_type, self.current_token_type()))
+                .await;
         }
     }
 
-    fn statement(&mut self) {
+    async fn statement(&mut self) {
+        self.client.log_message(MessageType::LOG, "statement!").await;
         match self.current_token().token_type {
             TokenType::LeftCurly => {
                 self.next_token();
-                self.statements();
-                self.expect(TokenType::RightCurly);
+                self.statements().await;
+                self.expect(TokenType::RightCurly).await;
             }
             val => {
                 self.next_token();
-                smol::block_on(self.client
-                    .log_message(MessageType::WARNING, format!("Unhandled token {} in statement", val)));
+                self.client.log_message(MessageType::WARNING, format!("Unhandled token {} in statement", val)).await;
             }
         }
     }
 
-    fn statements(&mut self) {
+    #[async_recursion]
+    async fn statements(&mut self) {
         while self.current_token_type() != TokenType::RightCurly && self.current_token_type() != TokenType::Default && self.current_token_type() != TokenType::Case {
-            self.statement();
+            self.statement().await;
         }
     }
 }
