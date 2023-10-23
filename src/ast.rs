@@ -9,7 +9,7 @@ pub trait Visitor<T> {
 }
 
 pub struct Statements {
-    statements: Vec<Statement>,
+    pub statements: Vec<Statement>,
 }
 
 pub enum Statement {

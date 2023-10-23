@@ -22,11 +22,13 @@ impl<'a> Parser<'a> {
         }
     }
     
-    pub async fn parse(&mut self) {
+    pub async fn parse(&mut self) -> Result<Statement, String> {
         let client = self.client;
 
-        client.log_message(MessageType::LOG, "Starting parse").await;
-        self.statement().await;
+        client.log_message(MessageType::INFO, "Starting parse").await;
+        let statement = self.statement().await?;
+
+        return Ok(statement);
     }
 
     fn next_token(&mut self) -> &'a Token {
@@ -43,33 +45,45 @@ impl<'a> Parser<'a> {
         return self.current_token().token_type;
     }
     
-    async fn expect(&self, token_type: TokenType) {
+    async fn expect(&self, token_type: TokenType) -> Result<(), String> {
         if self.current_token_type() != token_type {
             self.client
                 .log_message(MessageType::ERROR, format!("Expected token `{}`, got `{}`", token_type, self.current_token_type()))
                 .await;
+            
+            return Err(format!("Expected token `{}`, got `{}`", token_type, self.current_token_type()));
         }
+
+        return Ok(());
     }
 
-    async fn statement(&mut self) {
-        self.client.log_message(MessageType::LOG, "statement!").await;
+    async fn statement(&mut self) -> Result<Statement, String> {
+        self.client.log_message(MessageType::INFO, "statement!").await;
         match self.current_token().token_type {
             TokenType::LeftCurly => {
                 self.next_token();
-                self.statements().await;
-                self.expect(TokenType::RightCurly).await;
+                let statements = self.statements().await?;
+                self.expect(TokenType::RightCurly).await?;
+
+                return Ok(Statement::Statements(statements));
             }
             val => {
                 self.next_token();
-                self.client.log_message(MessageType::WARNING, format!("Unhandled token {} in statement", val)).await;
+                self.client.log_message(MessageType::WARNING, format!("Unhandled token `{}` in statement", val)).await;
+                return Err(format!("Unhandled token '{}' in statement", val));
             }
         }
     }
 
     #[async_recursion]
-    async fn statements(&mut self) {
+    async fn statements(&mut self) -> Result<Statements, String> {
+        let mut statements: Vec<Statement> = Vec::new();
         while self.current_token_type() != TokenType::RightCurly && self.current_token_type() != TokenType::Default && self.current_token_type() != TokenType::Case {
-            self.statement().await;
+            let statement: Statement = self.statement().await?;
+            statements.push(statement);
         }
+        self.client.log_message(MessageType::INFO, "Finished statements").await;
+
+        return Ok(Statements {statements})
     }
 }
