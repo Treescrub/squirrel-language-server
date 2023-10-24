@@ -4,6 +4,7 @@ mod tests;
 mod document_manager;
 mod parser;
 mod ast;
+mod visitors;
 
 use document_manager::DocumentManager;
 use serde_json::Value;
@@ -11,6 +12,7 @@ use tokio::sync::Mutex;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
+use visitors::{PrettyPrinter, SimpleVisitorMut};
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 
@@ -118,8 +120,13 @@ impl LanguageServer for Backend {
         let mut parser: Parser = Parser::new(&lexer.tokens, &self.client);
         let parse_result = parser.parse().await;
         match parse_result {
-            Ok(_) => {
+            Ok(script) => {
                 self.client.log_message(MessageType::INFO, "Successfully parsed").await;
+                let mut pretty_printer = PrettyPrinter::new();
+
+                pretty_printer.visit_script(script);
+                self.client.log_message(MessageType::INFO, "Pretty printer:").await;
+                self.client.log_message(MessageType::LOG, pretty_printer.text).await;
             }
             Err(message) => {
                 self.client.log_message(MessageType::ERROR, format!("Failed to parse: {}", message)).await;

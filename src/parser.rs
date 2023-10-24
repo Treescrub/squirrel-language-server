@@ -22,21 +22,28 @@ impl<'a> Parser<'a> {
         }
     }
     
-    pub async fn parse(&mut self) -> Result<Statement, String> {
+    pub async fn parse(&mut self) -> Result<Script, String> {
         let client = self.client;
 
         client.log_message(MessageType::INFO, "Starting parse").await;
-        let statement = self.statement().await?;
 
-        return Ok(statement);
+        return Ok(self.script().await?);
     }
 
-    fn next_token(&mut self) -> &'a Token {
-        self.token_index += 1;
+    fn next_token(&mut self) {
+        loop {
+            self.token_index += 1;
 
-        return self.current_token();
+            if self.is_end_of_tokens() || self.current_token_type() != TokenType::NewLine {
+                break;
+            }
+        }
     }
     
+    fn prev_token(&self) -> Option<&'a Token> {
+        return self.tokens.get(self.token_index - 1);
+    }
+
     fn current_token(&self) -> &'a Token {
         return self.tokens.get(self.token_index).unwrap();
     }
@@ -47,14 +54,48 @@ impl<'a> Parser<'a> {
     
     async fn expect(&self, token_type: TokenType) -> Result<(), String> {
         if self.current_token_type() != token_type {
-            self.client
-                .log_message(MessageType::ERROR, format!("Expected token `{}`, got `{}`", token_type, self.current_token_type()))
-                .await;
-            
             return Err(format!("Expected token `{}`, got `{}`", token_type, self.current_token_type()));
         }
 
         return Ok(());
+    }
+
+    async fn script(&mut self) -> Result<Script, String> {
+        let mut statements: Vec<Statement> = Vec::new();
+        // while !self.is_end_of_tokens() {
+            statements.push(self.statement().await?);
+            self.optional_semicolon().await?;
+        // }
+
+        return Ok(Script { statements })
+    }
+
+    async fn optional_semicolon(&mut self) -> Result<(), String> {
+        self.client.log_message(MessageType::INFO, "optional semicolon").await;
+
+        if self.prev_token().is_some() && (self.prev_token().unwrap().token_type == TokenType::RightCurly || self.prev_token().unwrap().token_type == TokenType::Semicolon) {
+            return Ok(());
+        }
+
+        if self.current_token_type() == TokenType::Semicolon {
+            self.next_token();
+            return Ok(());
+        }
+
+        if !self.is_end_of_statement() {
+            return Err(String::from("expected end of statement"));
+        }
+
+        return Ok(());
+    }
+
+    fn is_end_of_tokens(&self) -> bool {
+        return self.token_index == self.tokens.len();
+    }
+
+    fn is_end_of_statement(&self) -> bool {
+        return (self.prev_token().is_some() && self.prev_token().unwrap().token_type == TokenType::NewLine)
+                || self.is_end_of_tokens() || self.current_token_type() == TokenType::RightCurly || self.current_token_type() == TokenType::Semicolon;
     }
 
     async fn statement(&mut self) -> Result<Statement, String> {
@@ -67,9 +108,18 @@ impl<'a> Parser<'a> {
 
                 return Ok(Statement::Statements(statements));
             }
+            TokenType::Break => {
+                self.next_token();
+
+                return Ok(Statement::Break);
+            }
+            TokenType::Continue => {
+                self.next_token();
+
+                return Ok(Statement::Continue);
+            }
             val => {
                 self.next_token();
-                self.client.log_message(MessageType::WARNING, format!("Unhandled token `{}` in statement", val)).await;
                 return Err(format!("Unhandled token '{}' in statement", val));
             }
         }
@@ -77,10 +127,12 @@ impl<'a> Parser<'a> {
 
     #[async_recursion]
     async fn statements(&mut self) -> Result<Statements, String> {
+        self.client.log_message(MessageType::INFO, "Start statements").await;
         let mut statements: Vec<Statement> = Vec::new();
         while self.current_token_type() != TokenType::RightCurly && self.current_token_type() != TokenType::Default && self.current_token_type() != TokenType::Case {
-            let statement: Statement = self.statement().await?;
-            statements.push(statement);
+            statements.push(self.statement().await?);
+
+            self.optional_semicolon().await?;
         }
         self.client.log_message(MessageType::INFO, "Finished statements").await;
 

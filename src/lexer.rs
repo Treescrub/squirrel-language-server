@@ -91,6 +91,7 @@ pub enum TokenType {
     Const,                  // const
     Rawcall,                // rawcall
     Dot,                    // .
+    NewLine,                // '\n', only used for delimiting
     Invalid                 // (invalid token)
 }
 
@@ -185,6 +186,7 @@ impl TokenType {
             TokenType::Const => "const",
             TokenType::Rawcall => "rawcall",
             TokenType::Dot => ".",
+            TokenType::NewLine => "\\n",
             TokenType::Invalid => "INVALID_TOKEN",
             
         }
@@ -641,12 +643,13 @@ impl<'a,'b> Lexer<'b> {
                 self.next();
                 continue;
             }
+            
+            self.start_token();
+
             if self.cur_char == '\n' {
-                self.next();
+                self.end_token_on_next(TokenType::NewLine);
                 continue;
             }
-
-            self.start_token();
             
             match self.cur_char {
                 'a'..='z' | 'A'..='Z' => self.lex_identifier(),

@@ -4,8 +4,8 @@ trait AstNode {
 
 }
 
-pub trait Visitor<T> {
-    fn visit_statements(&mut self, statements: Statements) -> T;
+pub struct Script {
+    pub statements: Vec<Statement>,
 }
 
 pub struct Statements {
