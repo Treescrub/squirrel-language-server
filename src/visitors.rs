@@ -40,14 +40,17 @@ impl PrettyPrinter {
             self.text.push_str("  ");
         }
     }
+
+    fn print(&mut self, text: &str) {
+        self.add_indents();
+        self.text.push_str(text);
+    }
 }
 
 impl SimpleVisitorMut for PrettyPrinter {
     fn visit_script(&mut self, script: Script) {
-        self.add_indents();
+        self.print(&format!("SCRIPT: {} statement(s)\n", script.statements.len()));
         self.push_level();
-
-        self.text.push_str(&format!("SCRIPT: {} statement(s)\n", script.statements.len()));
         for statement in script.statements {
             self.visit_statement(statement);
         }
@@ -56,10 +59,9 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_statements(&mut self, statements: Statements) {
-        self.add_indents();
         self.push_level();
 
-        self.text.push_str("STATEMENTS\n");
+        self.print("STATEMENTS\n");
         for statement in statements.statements {
             self.visit_statement(statement);
         }
@@ -70,21 +72,17 @@ impl SimpleVisitorMut for PrettyPrinter {
     fn visit_statement(&mut self, statement: Statement) {
         match statement {
             Statement::Break => {
-                self.add_indents();
-                self.text.push_str("BREAK\n");
+                self.print("BREAK\n");
             }
             Statement::Continue => {
-                self.add_indents();
-                self.text.push_str("CONTINUE\n");
+                self.print("CONTINUE\n");
             }
             Statement::Const(id, scalar) => {
-                self.add_indents();
-                self.text.push_str(&format!("CONST\n"));
+                self.print(&format!("CONST\n"));
             }
             Statement::Statements(statements) => self.visit_statements(statements),
             _ => {
-                self.add_indents();
-                self.text.push_str("unknown statement\n");
+                self.print("unknown statement\n");
             },
         }
     }
