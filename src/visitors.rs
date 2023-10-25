@@ -71,16 +71,20 @@ impl SimpleVisitorMut for PrettyPrinter {
         match statement {
             Statement::Break => {
                 self.add_indents();
-                self.text.push_str("BREAK\n")
+                self.text.push_str("BREAK\n");
             }
             Statement::Continue => {
                 self.add_indents();
-                self.text.push_str("CONTINUE\n")
+                self.text.push_str("CONTINUE\n");
+            }
+            Statement::Const(id, scalar) => {
+                self.add_indents();
+                self.text.push_str(&format!("CONST\n"));
             }
             Statement::Statements(statements) => self.visit_statements(statements),
             _ => {
                 self.add_indents();
-                self.text.push_str("unknown statement\n")
+                self.text.push_str("unknown statement\n");
             },
         }
     }

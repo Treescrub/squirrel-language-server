@@ -132,7 +132,7 @@ impl TokenType {
             TokenType::Clone => "clone",
             TokenType::Return => "return",
             TokenType::Typeof => "typeof",
-            TokenType::Assign => "assign",
+            TokenType::Assign => "=",
             TokenType::Equal => "==",
             TokenType::NotEqual => "!=",
             TokenType::LessThan => "<",
@@ -428,7 +428,7 @@ impl<'a,'b> Lexer<'b> {
                     if self.keywords.contains_key(&self.cur_token_text) {
                         self.end_token(self.keywords[&self.cur_token_text]);
                     } else {
-                        self.end_token(TokenType::Identifier);
+                        self.end_token_with_sval(TokenType::Identifier, self.cur_token_text.clone());
                     }
                     break;
                 }

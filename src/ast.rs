@@ -140,5 +140,5 @@ pub enum PrefixedExpression {
 }
 
 pub struct Identifier {
-    value: String,
+    pub value: String,
 }

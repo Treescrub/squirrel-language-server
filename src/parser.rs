@@ -52,7 +52,7 @@ impl<'a> Parser<'a> {
         return self.current_token().token_type;
     }
     
-    async fn expect(&self, token_type: TokenType) -> Result<(), String> {
+    fn expect(&self, token_type: TokenType) -> Result<(), String> {
         if self.current_token_type() != token_type {
             return Err(format!("Expected token `{}`, got `{}`", token_type, self.current_token_type()));
         }
@@ -64,15 +64,13 @@ impl<'a> Parser<'a> {
         let mut statements: Vec<Statement> = Vec::new();
         // while !self.is_end_of_tokens() {
             statements.push(self.statement().await?);
-            self.optional_semicolon().await?;
+            self.optional_semicolon()?;
         // }
 
         return Ok(Script { statements })
     }
 
-    async fn optional_semicolon(&mut self) -> Result<(), String> {
-        self.client.log_message(MessageType::INFO, "optional semicolon").await;
-
+    fn optional_semicolon(&mut self) -> Result<(), String> {
         if self.prev_token().is_some() && (self.prev_token().unwrap().token_type == TokenType::RightCurly || self.prev_token().unwrap().token_type == TokenType::Semicolon) {
             return Ok(());
         }
@@ -104,7 +102,7 @@ impl<'a> Parser<'a> {
             TokenType::LeftCurly => {
                 self.next_token();
                 let statements = self.statements().await?;
-                self.expect(TokenType::RightCurly).await?;
+                self.expect(TokenType::RightCurly)?;
 
                 return Ok(Statement::Statements(statements));
             }
@@ -118,9 +116,64 @@ impl<'a> Parser<'a> {
 
                 return Ok(Statement::Continue);
             }
+            TokenType::Const => {
+                self.next_token();
+
+                return self.const_statement();
+            }
             val => {
                 self.next_token();
                 return Err(format!("Unhandled token '{}' in statement", val));
+            }
+        }
+    }
+
+    fn const_statement(&mut self) -> Result<Statement, String> {
+        self.expect(TokenType::Identifier)?;
+        let id = self.current_token().svalue.as_ref().unwrap();
+        self.next_token();
+        self.expect(TokenType::Assign)?;
+        self.next_token();
+        let scalar = self.scalar()?;
+        self.next_token();
+        self.optional_semicolon()?;
+
+        return Ok(Statement::Const(Identifier {value: id.clone()}, scalar));
+    }
+
+    fn scalar(&mut self) -> Result<Scalar, String> {
+        match self.current_token_type() {
+            TokenType::IntegerLiteral => {
+                return Ok(Scalar::Integer);
+            }
+            TokenType::FloatLiteral => {
+                return Ok(Scalar::Float);
+            }
+            TokenType::StringLiteral => {
+                return Ok(Scalar::StringLiteral);
+            }
+            TokenType::True => {
+                return Ok(Scalar::True);
+            }
+            TokenType::False => {
+                return Ok(Scalar::False);
+            }
+            TokenType::Minus => {
+                self.next_token();
+                match self.current_token_type() {
+                    TokenType::IntegerLiteral => {
+                        return Ok(Scalar::Integer);
+                    }
+                    TokenType::FloatLiteral => {
+                        return Ok(Scalar::Float);
+                    }
+                    unhandled_type => {
+                        return Err(format!("expected int or float scalar, got {}", unhandled_type));
+                    }
+                }
+            }
+            unhandled_type => {
+                return Err(format!("expected int, float, or string scalar, got {}", unhandled_type));
             }
         }
     }
@@ -132,7 +185,7 @@ impl<'a> Parser<'a> {
         while self.current_token_type() != TokenType::RightCurly && self.current_token_type() != TokenType::Default && self.current_token_type() != TokenType::Case {
             statements.push(self.statement().await?);
 
-            self.optional_semicolon().await?;
+            self.optional_semicolon()?;
         }
         self.client.log_message(MessageType::INFO, "Finished statements").await;
 
