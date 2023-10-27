@@ -92,11 +92,12 @@ pub enum TokenType {
     Rawcall,                // rawcall
     Dot,                    // .
     NewLine,                // '\n', only used for delimiting
+    At,                     // @
     Invalid                 // (invalid token)
 }
 
 impl TokenType {
-    pub fn as_str(&self) -> &str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             TokenType::Identifier => "IDENTIFIER",
             TokenType::StringLiteral => "STRING_LITERAL",
@@ -187,8 +188,9 @@ impl TokenType {
             TokenType::Rawcall => "rawcall",
             TokenType::Dot => ".",
             TokenType::NewLine => "\\n",
+            TokenType::At => "@",
             TokenType::Invalid => "INVALID_TOKEN",
-            
+
         }
     }
 }
@@ -436,17 +438,7 @@ impl<'a,'b> Lexer<'b> {
         }
     }
 
-    fn lex_string(&mut self) {
-        let mut verbatim = false;
-        if self.cur_char == '@' {
-            verbatim = true;
-            self.next();
-            if self.cur_char != '\'' && self.cur_char != '"' {
-                self.end_bad_token();
-                return;
-            }
-        }
-
+    fn lex_string(&mut self, verbatim: bool) {
         let mut fail_at_end = false;
         let mut svalue = String::new();
         let delimiter = self.cur_char;
@@ -654,7 +646,15 @@ impl<'a,'b> Lexer<'b> {
             match self.cur_char {
                 'a'..='z' | 'A'..='Z' => self.lex_identifier(),
                 '0'..='9' => self.lex_number(),
-                '\'' | '"' | '@' => self.lex_string(),
+                '\'' | '"' => self.lex_string(false),
+                '@' => {
+                    self.next();
+                    if self.cur_char == '"' || self.cur_char == '\'' {
+                        self.lex_string(true);
+                    } else {
+                        self.end_token(TokenType::At);
+                    }
+                }
                 '=' => {
                     if self.next() != '=' {
                         self.end_token(TokenType::Assign);
