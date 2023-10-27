@@ -47,6 +47,26 @@ pub enum Scalar {
     False,
 }
 
+pub enum Factor {
+    Scalar(Scalar),
+    Base,
+    Identifier(Identifier),
+    Constructor,
+    This,
+    // root table access (::)
+    Null,
+    ArrayInit(Vec<Expression>),
+    TableInit, // TODO: params
+    DeclareFunction, // TODO: params
+    FunctionExpression, // TODO: params
+    DeclareClass, // TODO: params
+    UnaryOp, // TODO: params
+    RawCall, // TODO: params
+    Delete(Expression),
+    LineInfo,
+    FileInfo,
+}
+
 pub struct FunctionIdentifier {
     in_root: bool,
     identifiers: Vec<Identifier>,
@@ -77,7 +97,7 @@ pub enum ForInit {
 }
 
 pub struct CommaExpression {
-
+    pub expressions: Vec<Expression>,
 }
 
 pub enum Expression {

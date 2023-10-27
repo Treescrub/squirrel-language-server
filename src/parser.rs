@@ -178,6 +178,19 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn factor(&mut self) -> Result<Factor, String> {
+        match self.current_token_type() {
+            TokenType::Base => {
+                self.next_token();
+                
+                return Ok(Factor::Base);
+            }
+            token_type => {
+                return Err(format!("Unexpected token for factor: {}", token_type));
+            }
+        }
+    }
+
     #[async_recursion]
     async fn statements(&mut self) -> Result<Statements, String> {
         self.client.log_message(MessageType::INFO, "Start statements").await;
