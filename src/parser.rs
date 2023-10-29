@@ -179,11 +179,72 @@ impl<'a> Parser<'a> {
     }
 
     fn factor(&mut self) -> Result<Factor, String> {
-        match self.current_token_type() {
+        let token_type = self.current_token_type();
+        let token = self.current_token();
+        self.next_token();
+
+        match token_type {
+            TokenType::StringLiteral => {
+                return Ok(Factor::Scalar(Scalar::StringLiteral));
+            }
             TokenType::Base => {
-                self.next_token();
-                
                 return Ok(Factor::Base);
+            }
+            TokenType::Identifier => {
+                return Ok(Factor::Identifier(Identifier { value: token.svalue.as_ref().unwrap().clone() }));
+            }
+            TokenType::Constructor => {
+                return Ok(Factor::Constructor);
+            }
+            TokenType::This => {
+                return Ok(Factor::This);
+            }
+            /*TokenType::DoubleColon => {
+                return Ok(Factor::DoubleColon);
+            }*/
+            TokenType::Null => {
+                return Ok(Factor::Null);
+            }
+            TokenType::IntegerLiteral => {
+                return Ok(Factor::Scalar(Scalar::Integer));
+            }
+            TokenType::FloatLiteral => {
+                return Ok(Factor::Scalar(Scalar::Float));
+            }
+            TokenType::True => {
+                return Ok(Factor::Scalar(Scalar::True));
+            }
+            TokenType::False => {
+                return Ok(Factor::Scalar(Scalar::False));
+            }
+            TokenType::LeftSquare => {
+                todo!();
+            }
+            TokenType::LeftCurly => {
+                todo!();
+            }
+            TokenType::Function => {
+                todo!();
+            }
+            TokenType::Class => {
+                todo!();
+            }
+            TokenType::Minus => {
+                self.next_token();
+                match self.current_token_type() {
+                    TokenType::IntegerLiteral => {
+                        return Ok(Factor::Scalar(Scalar::Integer));
+                    }
+                    TokenType::FloatLiteral => {
+                        return Ok(Factor::Scalar(Scalar::Float));
+                    }
+                    _ => {
+                        todo!();
+                    }
+                }
+            }
+            TokenType::LogicalNot => {
+                todo!();
             }
             token_type => {
                 return Err(format!("Unexpected token for factor: {}", token_type));
