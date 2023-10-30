@@ -38,8 +38,8 @@ impl<'a> Parser<'a> {
         return self.current_token();
     }
     
-    fn prev_token(&self) -> Option<&'a Token> {
-        return self.tokens.get(self.token_index - 1);
+    fn prev_token(&self) -> &Token {
+        return self.tokens.get(self.token_index - 1).unwrap();
     }
 
     fn current_token(&self) -> &'a Token {
@@ -70,25 +70,23 @@ impl<'a> Parser<'a> {
     }
     
     fn is_end_of_statement(&self) -> bool {
-        return (self.prev_token().is_some() && self.prev_token().unwrap().token_type == TokenType::NewLine)
-                || self.is_end_of_tokens() || self.current_token_type() == TokenType::RightCurly || self.current_token_type() == TokenType::Semicolon;
+        return (self.prev_token().token_type == TokenType::NewLine) || self.is_end_of_tokens() 
+                || self.current_token_type() == TokenType::RightCurly || self.current_token_type() == TokenType::Semicolon;
     }
 
     fn script(&mut self) -> Result<Script, String> {
         let mut statements: Vec<Statement> = Vec::new();
         // while !self.is_end_of_tokens() {
             statements.push(self.statement()?);
-            self.optional_semicolon()?;
+            if self.prev_token().token_type != TokenType::RightCurly && self.prev_token().token_type != TokenType::Semicolon {
+                self.optional_semicolon()?;
+            }
         // }
 
         return Ok(Script { statements })
     }
 
     fn optional_semicolon(&mut self) -> Result<(), String> {
-        if self.prev_token().is_some() && (self.prev_token().unwrap().token_type == TokenType::RightCurly || self.prev_token().unwrap().token_type == TokenType::Semicolon) {
-            return Ok(());
-        }
-
         if self.current_token_type() == TokenType::Semicolon {
             self.next_token();
             return Ok(());
@@ -134,32 +132,35 @@ impl<'a> Parser<'a> {
 
     fn const_statement(&mut self) -> Result<Statement, String> {
         self.expect(TokenType::Identifier)?;
-        let id = self.current_token().svalue.as_ref().unwrap();
-        self.next_token();
+        let id = self.current_token_and_advance().svalue.as_ref().unwrap().clone();
         self.expect(TokenType::Assign)?;
         self.next_token();
         let scalar = self.scalar()?;
-        self.next_token();
         self.optional_semicolon()?;
 
-        return Ok(Statement::Const(Identifier {value: id.clone()}, scalar));
+        return Ok(Statement::Const(Identifier {value: id}, scalar));
     }
 
     fn scalar(&mut self) -> Result<Scalar, String> {
         match self.current_token_type() {
             TokenType::IntegerLiteral => {
+                self.next_token();
                 return Ok(Scalar::Integer);
             }
             TokenType::FloatLiteral => {
+                self.next_token();
                 return Ok(Scalar::Float);
             }
             TokenType::StringLiteral => {
+                self.next_token();
                 return Ok(Scalar::StringLiteral);
             }
             TokenType::True => {
+                self.next_token();
                 return Ok(Scalar::True);
             }
             TokenType::False => {
+                self.next_token();
                 return Ok(Scalar::False);
             }
             TokenType::Minus => {
@@ -261,7 +262,9 @@ impl<'a> Parser<'a> {
         while self.current_token_type() != TokenType::RightCurly && self.current_token_type() != TokenType::Default && self.current_token_type() != TokenType::Case {
             statements.push(self.statement()?);
 
-            self.optional_semicolon()?;
+            if self.prev_token().token_type != TokenType::RightCurly && self.prev_token().token_type != TokenType::Semicolon {
+                self.optional_semicolon()?;
+            }
         }
 
         return Ok(Statements {statements})
