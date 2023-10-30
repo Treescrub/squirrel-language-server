@@ -118,7 +118,7 @@ impl LanguageServer for Backend {
             .await;
         
         let mut parser: Parser = Parser::new(&lexer.tokens, &self.client);
-        let parse_result = parser.parse().await;
+        let parse_result = parser.parse();
         match parse_result {
             Ok(script) => {
                 self.client.log_message(MessageType::INFO, "Successfully parsed").await;

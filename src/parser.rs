@@ -1,6 +1,4 @@
 use tower_lsp::Client;
-use tower_lsp::lsp_types::MessageType;
-use async_recursion::async_recursion;
 
 use crate::ast::*;
 use crate::lexer::*;
@@ -22,15 +20,13 @@ impl<'a> Parser<'a> {
         }
     }
     
-    pub async fn parse(&mut self) -> Result<Script, String> {
+    pub fn parse(&mut self) -> Result<Script, String> {
         let client = self.client;
 
-        client.log_message(MessageType::INFO, "Starting parse").await;
-
-        return Ok(self.script().await?);
+        return Ok(self.script()?);
     }
 
-    fn next_token(&mut self) {
+    fn next_token(&mut self) -> &Token {
         loop {
             self.token_index += 1;
 
@@ -38,6 +34,8 @@ impl<'a> Parser<'a> {
                 break;
             }
         }
+
+        return self.current_token();
     }
     
     fn prev_token(&self) -> Option<&'a Token> {
@@ -51,6 +49,13 @@ impl<'a> Parser<'a> {
     fn current_token_type(&self) -> TokenType {
         return self.current_token().token_type;
     }
+
+    fn current_token_and_advance(&mut self) -> &Token {
+        let current = self.current_token();
+        self.next_token();
+
+        return current;
+    }
     
     fn expect(&self, token_type: TokenType) -> Result<(), String> {
         if self.current_token_type() != token_type {
@@ -60,10 +65,19 @@ impl<'a> Parser<'a> {
         return Ok(());
     }
 
-    async fn script(&mut self) -> Result<Script, String> {
+    fn is_end_of_tokens(&self) -> bool {
+        return self.token_index == self.tokens.len();
+    }
+    
+    fn is_end_of_statement(&self) -> bool {
+        return (self.prev_token().is_some() && self.prev_token().unwrap().token_type == TokenType::NewLine)
+                || self.is_end_of_tokens() || self.current_token_type() == TokenType::RightCurly || self.current_token_type() == TokenType::Semicolon;
+    }
+
+    fn script(&mut self) -> Result<Script, String> {
         let mut statements: Vec<Statement> = Vec::new();
         // while !self.is_end_of_tokens() {
-            statements.push(self.statement().await?);
+            statements.push(self.statement()?);
             self.optional_semicolon()?;
         // }
 
@@ -87,21 +101,11 @@ impl<'a> Parser<'a> {
         return Ok(());
     }
 
-    fn is_end_of_tokens(&self) -> bool {
-        return self.token_index == self.tokens.len();
-    }
-
-    fn is_end_of_statement(&self) -> bool {
-        return (self.prev_token().is_some() && self.prev_token().unwrap().token_type == TokenType::NewLine)
-                || self.is_end_of_tokens() || self.current_token_type() == TokenType::RightCurly || self.current_token_type() == TokenType::Semicolon;
-    }
-
-    async fn statement(&mut self) -> Result<Statement, String> {
-        self.client.log_message(MessageType::INFO, "statement!").await;
+    fn statement(&mut self) -> Result<Statement, String> {
         match self.current_token().token_type {
             TokenType::LeftCurly => {
                 self.next_token();
-                let statements = self.statements().await?;
+                let statements = self.statements()?;
                 self.expect(TokenType::RightCurly)?;
 
                 return Ok(Statement::Statements(statements));
@@ -252,17 +256,152 @@ impl<'a> Parser<'a> {
         }
     }
 
-    #[async_recursion]
-    async fn statements(&mut self) -> Result<Statements, String> {
-        self.client.log_message(MessageType::INFO, "Start statements").await;
+    fn statements(&mut self) -> Result<Statements, String> {
         let mut statements: Vec<Statement> = Vec::new();
         while self.current_token_type() != TokenType::RightCurly && self.current_token_type() != TokenType::Default && self.current_token_type() != TokenType::Case {
-            statements.push(self.statement().await?);
+            statements.push(self.statement()?);
 
             self.optional_semicolon()?;
         }
-        self.client.log_message(MessageType::INFO, "Finished statements").await;
 
         return Ok(Statements {statements})
+    }
+
+    fn expression(&mut self) -> Result<Expression, String> {
+        let logical_or = self.logical_or_expression()?;
+        
+        match self.current_token_type() {
+            TokenType::Newslot => {
+                let expression = self.expression()?;
+
+                return Ok(Expression::Newslot);
+            }
+            _ => todo!()
+        }
+    }
+
+    fn logical_or_expression(&mut self) -> Result<LogicalOrExpression, String> {
+        let left = self.logical_and_expression()?;
+        let right = self.logical_or_expression()?;
+
+        return Ok(LogicalOrExpression { left, right: Box::new(right) });
+    }
+
+    fn logical_and_expression(&mut self) -> Result<LogicalAndExpression, String> {
+        let left = self.bitwise_or_expression()?;
+        let right = self.logical_and_expression()?;
+
+        return Ok(LogicalAndExpression { left, right: Box::new(right) });
+    }
+
+    fn bitwise_or_expression(&mut self) -> Result<BitwiseOrExpression, String> {
+        let left = self.bitwise_xor_expression()?;
+        let right = self.bitwise_xor_expression()?;
+        
+        return Ok(BitwiseOrExpression { left, right });
+    }
+
+    fn bitwise_xor_expression(&mut self) -> Result<BitwiseXorExpression, String> {
+        let left = self.bitwise_and_expression()?;
+        let right = self.bitwise_and_expression()?;
+        
+        return Ok(BitwiseXorExpression { left, right });
+    }
+
+    fn bitwise_and_expression(&mut self) -> Result<BitwiseAndExpression, String> {
+        let left = self.equal_expression()?;
+        let right = self.equal_expression()?;
+        
+        return Ok(BitwiseAndExpression { left, right });
+    }
+
+    fn equal_expression(&mut self) -> Result<EqualExpression, String> {
+        let left = self.compare_expression()?;
+        let operator = self.next_token().token_type;
+        let right = self.compare_expression()?;
+        
+        return Ok(EqualExpression { left, operator, right });
+    }
+
+    fn compare_expression(&mut self) -> Result<CompareExpression, String> {
+        let left = self.shift_expression()?;
+        let operator = self.next_token().token_type;
+        let right = self.shift_expression()?;
+
+        return Ok(CompareExpression { left, operator, right });
+    }
+
+    fn shift_expression(&mut self) -> Result<ShiftExpression, String> {
+        let left = self.plus_expression()?;
+        let operator = self.current_token_and_advance().token_type;
+        let right = self.plus_expression()?;
+
+        return Ok(ShiftExpression { left, operator, right });
+    }
+
+    fn plus_expression(&mut self) -> Result<PlusExpression, String> {
+        let left = self.multiply_expression()?;
+        let operator = self.current_token_and_advance().token_type;
+        let right = self.multiply_expression()?;
+
+        return Ok(PlusExpression { left, operator, right });
+    }
+
+    fn multiply_expression(&mut self) -> Result<MultiplyExpression, String> {
+        let left = self.prefixed_expression()?;
+        let operator = self.current_token_and_advance().token_type;
+        let right = self.prefixed_expression()?;
+
+        return Ok(MultiplyExpression { left, operator, right });
+    }
+
+    fn prefixed_expression(&mut self) -> Result<PrefixedExpression, String> {
+        let factor = self.factor()?;
+        match self.current_token_type() {
+            TokenType::Dot => {
+                self.expect(TokenType::Identifier)?;
+
+                return Ok(PrefixedExpression::DotAccess);
+            }
+            TokenType::LeftSquare => {
+                let expression = self.expression()?;
+                self.expect(TokenType::RightSquare)?;
+
+                return Ok(PrefixedExpression::ArrayStyleAccess);
+            }
+            TokenType::PlusPlus => {
+                return Ok(PrefixedExpression::PostIncrement);
+            }
+            TokenType::MinusMinus => {
+                return Ok(PrefixedExpression::PostDecrement);
+            }
+            TokenType::LeftParen => {
+                self.function_call_args()?;
+
+                return Ok(PrefixedExpression::FunctionCall);
+            }
+            token_type => {
+                todo!();
+            }
+        }
+    }
+
+    fn function_call_args(&mut self) -> Result<FunctionCallArgs, String> {
+        todo!();
+    }
+
+    fn comma_expression(&mut self) -> Result<CommaExpression, String> {
+        let mut expressions = Vec::new();
+        loop {
+            expressions.push(self.expression()?);
+
+            if self.current_token_type() != TokenType::Comma {
+                return Ok(CommaExpression { expressions });
+            }
+        }
+    }
+
+    async fn unary_op(&mut self) -> Result<UnaryOp, String> {
+        todo!();
     }
 }

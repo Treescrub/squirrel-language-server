@@ -1,4 +1,4 @@
-use crate::lexer::Token;
+use crate::lexer::{Token, TokenType};
 
 trait AstNode {
 
@@ -67,6 +67,11 @@ pub enum Factor {
     FileInfo,
 }
 
+pub struct UnaryOp {
+    operator: TokenType,
+    expression: PrefixedExpression,
+}
+
 pub struct FunctionIdentifier {
     in_root: bool,
     identifiers: Vec<Identifier>,
@@ -76,6 +81,10 @@ pub enum FunctionParam {
     Normal(Identifier),
     Default(Identifier, Expression),
     VarParams,
+}
+
+pub struct FunctionCallArgs {
+    args: Vec<Expression>,
 }
 
 pub struct SwitchCases {
@@ -120,43 +129,66 @@ pub enum Expression {
 }
 
 pub struct LogicalOrExpression {
-    logical_and: LogicalAndExpression,
-    logical_or: Box<LogicalOrExpression>,
+    pub left: LogicalAndExpression,
+    pub right: Box<LogicalOrExpression>,
 }
 
 pub struct LogicalAndExpression {
-    bitwise_or: BitwiseOrExpression,
-    logical_and: Box<LogicalAndExpression>,
+    pub left: BitwiseOrExpression,
+    pub right: Box<LogicalAndExpression>,
 }
 
 pub struct BitwiseOrExpression {
-    bitwise_xor: BitwiseXorExpression,
-    bitwise_or: Box<BitwiseOrExpression>,
+    pub left: BitwiseXorExpression,
+    pub right: BitwiseXorExpression,
 }
 
 pub struct BitwiseXorExpression {
-    bitwise_and: BitwiseAndExpression,
-    bitwise_xor: Box<BitwiseXorExpression>,
+    pub left: BitwiseAndExpression,
+    pub right: BitwiseAndExpression,
 }
 
 pub struct BitwiseAndExpression {
-    equal1: Equal,
-    equal2: Equal,
+    pub left: EqualExpression,
+    pub right: EqualExpression,
 }
 
-pub struct Equal {
-    compare1: Compare,
-    operator: Token,
-    compare2: Compare,
+pub struct EqualExpression {
+    pub left: CompareExpression,
+    pub operator: TokenType,
+    pub right: CompareExpression,
 }
 
-pub struct Compare {
-    
+pub struct CompareExpression {
+    pub left: ShiftExpression,
+    pub operator: TokenType,
+    pub right: ShiftExpression,
+}
+
+pub struct ShiftExpression {
+    pub left: PlusExpression,
+    pub operator: TokenType,
+    pub right: PlusExpression,
+}
+
+pub struct PlusExpression {
+    pub left: MultiplyExpression,
+    pub operator: TokenType,
+    pub right: MultiplyExpression,
+}
+
+pub struct MultiplyExpression {
+    pub left: PrefixedExpression,
+    pub operator: TokenType,
+    pub right: PrefixedExpression,
 }
 
 pub enum PrefixedExpression {
-    Clone(Box<PrefixedExpression>),
-    Delete(Box<PrefixedExpression>),
+    DotAccess,
+    ArrayStyleAccess,
+    PostIncrement,
+    PostDecrement,
+    FunctionCall,
 }
 
 pub struct Identifier {
