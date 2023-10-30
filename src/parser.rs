@@ -74,6 +74,12 @@ impl<'a> Parser<'a> {
                 || self.current_token_type() == TokenType::RightCurly || self.current_token_type() == TokenType::Semicolon;
     }
 
+    fn build_error(&self, mut message: String) -> String {
+        message.push_str(&format!(" (on line {}, col {})", self.current_token().range.start.line, self.current_token().range.start.column));
+
+        return message;
+    }
+
     fn script(&mut self) -> Result<Script, String> {
         let mut statements: Vec<Statement> = Vec::new();
         // while !self.is_end_of_tokens() {
@@ -93,7 +99,7 @@ impl<'a> Parser<'a> {
         }
 
         if !self.is_end_of_statement() {
-            return Err(String::from("expected end of statement"));
+            return Err(self.build_error(String::from("expected end of statement")));
         }
 
         return Ok(());
@@ -125,7 +131,7 @@ impl<'a> Parser<'a> {
             }
             val => {
                 self.next_token();
-                return Err(format!("Unhandled token '{}' in statement", val));
+                return Err(self.build_error(format!("Unhandled token '{}' in statement", val)));
             }
         }
     }
@@ -173,12 +179,12 @@ impl<'a> Parser<'a> {
                         return Ok(Scalar::Float);
                     }
                     unhandled_type => {
-                        return Err(format!("expected int or float scalar, got {}", unhandled_type));
+                        return Err(self.build_error(format!("expected int or float scalar, got '{}'", unhandled_type)));
                     }
                 }
             }
             unhandled_type => {
-                return Err(format!("expected int, float, or string scalar, got {}", unhandled_type));
+                return Err(self.build_error(format!("expected int, float, or string scalar, got '{}'", unhandled_type)));
             }
         }
     }
@@ -252,7 +258,7 @@ impl<'a> Parser<'a> {
                 todo!();
             }
             token_type => {
-                return Err(format!("Unexpected token for factor: {}", token_type));
+                return Err(self.build_error(format!("Unexpected token for factor: '{}'", token_type)));
             }
         }
     }

@@ -247,8 +247,8 @@ impl fmt::Display for Token {
 
 #[derive(Debug, Copy, Clone)]
 pub struct TokenLocation {
-    line: u32,
-    column: u32,
+    pub line: u32,
+    pub column: u32,
 }
 
 impl TokenLocation {
@@ -262,8 +262,8 @@ impl TokenLocation {
 
 #[derive(Debug, Copy, Clone)]
 pub struct TokenRange {
-    start: TokenLocation,
-    end: TokenLocation,
+    pub start: TokenLocation,
+    pub end: TokenLocation,
 }
 
 impl TokenRange {
