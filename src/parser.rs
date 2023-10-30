@@ -391,14 +391,13 @@ impl<'a> Parser<'a> {
     }
 
     fn comma_expression(&mut self) -> Result<CommaExpression, String> {
-        let mut expressions = Vec::new();
-        loop {
+        let mut expressions = vec![self.expression()?];
+        while self.current_token_type() == TokenType::Comma {
+            self.next_token();
             expressions.push(self.expression()?);
-
-            if self.current_token_type() != TokenType::Comma {
-                return Ok(CommaExpression { expressions });
-            }
         }
+
+        return Ok(CommaExpression { expressions });
     }
 
     async fn unary_op(&mut self) -> Result<UnaryOp, String> {
