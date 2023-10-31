@@ -210,9 +210,9 @@ impl<'a> Parser<'a> {
             TokenType::This => {
                 return Ok(Factor::This);
             }
-            /*TokenType::DoubleColon => {
-                return Ok(Factor::DoubleColon);
-            }*/
+            TokenType::DoubleColon => {
+                todo!();
+            }
             TokenType::Null => {
                 return Ok(Factor::Null);
             }
@@ -229,12 +229,15 @@ impl<'a> Parser<'a> {
                 return Ok(Factor::Scalar(Scalar::False));
             }
             TokenType::LeftSquare => {
-                todo!();
+                return Ok(self.array_init()?);
             }
             TokenType::LeftCurly => {
                 todo!();
             }
             TokenType::Function => {
+                todo!();
+            }
+            TokenType::At => {
                 todo!();
             }
             TokenType::Class => {
@@ -287,6 +290,39 @@ impl<'a> Parser<'a> {
             }
             _ => todo!()
         }
+    }
+
+    fn array_init(&mut self) -> Result<Factor, String> {
+        let mut expressions = Vec::new();
+
+        self.next_token();
+        while self.current_token_type() != TokenType::RightSquare {
+            expressions.push(self.expression()?);
+
+            if self.current_token_type() == TokenType::Comma {
+                self.next_token();
+            }
+        }
+
+        self.next_token();
+        
+        return Ok(Factor::ArrayInit(expressions));
+    }
+
+    fn class_expression(&mut self) -> Result<Factor, String> {
+        self.next_token();
+
+        if self.current_token_type() == TokenType::Extends {
+            self.next_token();
+            self.expression()?;
+        }
+        if self.current_token_type() == TokenType::AttributeOpen {
+            self.next_token();
+            todo!("ParseTableOrClass");
+        }
+        self.expect(TokenType::LeftCurly)?;
+
+        todo!("ParseTableOrClass");
     }
 
     fn logical_or_expression(&mut self) -> Result<LogicalOrExpression, String> {
@@ -409,7 +445,19 @@ impl<'a> Parser<'a> {
         return Ok(CommaExpression { expressions });
     }
 
-    async fn unary_op(&mut self) -> Result<UnaryOp, String> {
-        todo!();
+    fn unary_op(&mut self) -> Result<UnaryOp, String> {
+        let operator: TokenType;
+        match self.current_token_type() {
+            TokenType::Minus | TokenType::BitwiseNot | TokenType::LogicalNot | TokenType::Typeof
+            | TokenType::Resume | TokenType::Clone => {
+                operator = self.current_token_type();
+            }
+            token_type => {
+                return Err(self.build_error(format!("unary op with unhandled token '{}'", token_type)));
+            }
+        }
+        let expression = self.prefixed_expression()?;
+
+        return Ok(UnaryOp { operator, expression });
     }
 }

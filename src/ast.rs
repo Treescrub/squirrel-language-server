@@ -68,8 +68,8 @@ pub enum Factor {
 }
 
 pub struct UnaryOp {
-    operator: TokenType,
-    expression: PrefixedExpression,
+    pub operator: TokenType,
+    pub expression: PrefixedExpression,
 }
 
 pub struct FunctionIdentifier {
