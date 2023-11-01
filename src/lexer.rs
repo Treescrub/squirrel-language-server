@@ -128,7 +128,7 @@ impl TokenType {
             TokenType::Null => "null",
             TokenType::Foreach => "foreach",
             TokenType::In => "in",
-            TokenType::Newslot => "->",
+            TokenType::Newslot => "<-",
             TokenType::Local => "local",
             TokenType::Clone => "clone",
             TokenType::Return => "return",
