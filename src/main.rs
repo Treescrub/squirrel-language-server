@@ -135,9 +135,9 @@ impl LanguageServer for Backend {
         
         let mut state = self.state.lock().await;
         state.doc_manager.open_file(&params.text_document.text, &params.text_document.uri);
-        self.client
+        /*self.client
             .log_message(MessageType::INFO, format!("contents: {}", state.doc_manager.get(&params.text_document.uri).unwrap()))
-            .await;
+            .await;*/
         self.client
             .log_message(MessageType::INFO, format!("open files: {}", state.doc_manager.total_open_files()))
             .await;
@@ -152,9 +152,9 @@ impl LanguageServer for Backend {
         for content_change in &params.content_changes {
             state.doc_manager.edit_file(&content_change.text, &params.text_document.uri, content_change.range.unwrap());
         }
-        self.client
+        /*self.client
             .log_message(MessageType::INFO, format!("contents: {}", state.doc_manager.get(&params.text_document.uri).unwrap()))
-            .await;
+            .await;*/
     }
 
     async fn did_save(&self, _: DidSaveTextDocumentParams) {
