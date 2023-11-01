@@ -282,16 +282,19 @@ impl<'a> Parser<'a> {
     }
 
     fn expression(&mut self) -> Result<Expression, String> {
-        let logical_or = self.logical_or_expression()?;
-        
+        let logical_or = Box::new(self.logical_or_expression()?);
+        let mut expr_type = None;
+
         match self.current_token_type() {
             TokenType::Newslot => {
                 let expression = self.expression()?;
 
-                return Ok(Expression::Newslot);
+                expr_type = Some(ExpressionType::Newslot(Box::new(expression)));
             }
             _ => todo!()
         }
+
+        return Ok(Expression { logical_or, expr_type });
     }
 
     fn array_init(&mut self) -> Result<Factor, String> {

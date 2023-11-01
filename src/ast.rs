@@ -109,7 +109,12 @@ pub struct CommaExpression {
     pub expressions: Vec<Expression>,
 }
 
-pub enum Expression {
+pub struct Expression {
+    pub logical_or: Box<LogicalOrExpression>,
+    pub expr_type: Option<ExpressionType>
+}
+
+pub enum ExpressionType {
     Clone(Box<Expression>),
     Resume(Box<Expression>),
     Delete(Box<Expression>),
@@ -117,7 +122,7 @@ pub enum Expression {
     DeclareFunction,
     AnonymousFunction,
     Lambda,
-    Newslot,
+    Newslot(Box<Expression>),
     InitTable,
     Paren,
     Base,
