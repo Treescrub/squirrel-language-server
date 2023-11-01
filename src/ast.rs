@@ -130,65 +130,70 @@ pub enum Expression {
 
 pub struct LogicalOrExpression {
     pub left: LogicalAndExpression,
-    pub right: Box<LogicalOrExpression>,
+    pub right: Option<Box<LogicalOrExpression>>,
 }
 
 pub struct LogicalAndExpression {
     pub left: BitwiseOrExpression,
-    pub right: Box<LogicalAndExpression>,
+    pub right: Option<Box<LogicalAndExpression>>,
 }
 
 pub struct BitwiseOrExpression {
     pub left: BitwiseXorExpression,
-    pub right: BitwiseXorExpression,
+    pub right: Option<BitwiseXorExpression>,
 }
 
 pub struct BitwiseXorExpression {
     pub left: BitwiseAndExpression,
-    pub right: BitwiseAndExpression,
+    pub right: Option<BitwiseAndExpression>,
 }
 
 pub struct BitwiseAndExpression {
     pub left: EqualExpression,
-    pub right: EqualExpression,
+    pub right: Option<EqualExpression>,
 }
 
 pub struct EqualExpression {
     pub left: CompareExpression,
-    pub operator: TokenType,
-    pub right: CompareExpression,
+    pub operator: Option<TokenType>,
+    pub right: Option<CompareExpression>,
 }
 
 pub struct CompareExpression {
     pub left: ShiftExpression,
-    pub operator: TokenType,
-    pub right: ShiftExpression,
+    pub operator: Option<TokenType>,
+    pub right: Option<ShiftExpression>,
 }
 
 pub struct ShiftExpression {
     pub left: PlusExpression,
-    pub operator: TokenType,
-    pub right: PlusExpression,
+    pub operator: Option<TokenType>,
+    pub right: Option<PlusExpression>,
 }
 
 pub struct PlusExpression {
     pub left: MultiplyExpression,
-    pub operator: TokenType,
-    pub right: MultiplyExpression,
+    pub operator: Option<TokenType>,
+    pub right: Option<MultiplyExpression>,
 }
 
 pub struct MultiplyExpression {
     pub left: PrefixedExpression,
-    pub operator: TokenType,
-    pub right: PrefixedExpression,
+    pub operator: Option<TokenType>,
+    pub right: Option<PrefixedExpression>,
 }
 
-pub enum PrefixedExpression {
-    DotAccess,
-    ArrayStyleAccess,
+pub struct PrefixedExpression {
+    pub factor: Factor,
+    pub expr_type: Option<PrefixedExpressionType>,
+}
+
+pub enum PrefixedExpressionType {
+    DotAccess(Identifier),
+    ArrayStyleAccess(Expression),
     PostIncrement,
     PostDecrement,
-    FunctionCall,
+    FunctionCall(FunctionCallArgs),
 }
 
 pub struct Identifier {
