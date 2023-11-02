@@ -13,7 +13,7 @@ pub struct Statements {
 }
 
 pub enum Statement {
-    If(CommaExpression, IfBlock, Option<IfBlock>),
+    If(CommaExpression, Box<Statement>, Option<Box<Statement>>),
     While(CommaExpression, Box<Statement>),
     DoWhile(Box<Statement>, CommaExpression),
     For(Option<ForInit>, Option<CommaExpression>, Option<CommaExpression>),
@@ -95,11 +95,6 @@ pub enum LocalDeclare {
 
 }
 
-pub enum IfBlock {
-    SingleLine(Box<Statement>),
-    MultiLine(Statements),
-}
-
 pub enum ForInit {
     LocalDeclare(LocalDeclare),
     CommaExpression(CommaExpression),
@@ -115,22 +110,13 @@ pub struct Expression {
 }
 
 pub enum ExpressionType {
-    Clone(Box<Expression>),
-    Resume(Box<Expression>),
-    Delete(Box<Expression>),
-    CallFunction,
-    DeclareFunction,
-    AnonymousFunction,
-    Lambda,
     Newslot(Box<Expression>),
-    InitTable,
-    Paren,
-    Base,
-    Identifier(Identifier),
-    DotAccess,
-    IndexAccess,
-    ScopeAccess,
-    Literal,
+    Assign(Box<Expression>),
+    MinusEqual(Box<Expression>),
+    PlusEqual(Box<Expression>),
+    MultiplyEqual(Box<Expression>),
+    DivideEqual(Box<Expression>),
+    Ternary(Box<Expression>, Box<Expression>),
 }
 
 pub struct LogicalOrExpression {

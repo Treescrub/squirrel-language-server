@@ -109,7 +109,64 @@ impl<'a> Parser<'a> {
     }
 
     fn statement(&mut self) -> Result<Statement, String> {
-        match self.current_token().token_type {
+        let token_type = self.current_token_type();
+
+        match token_type {
+            TokenType::If => {
+                self.next_token();
+                return self.if_statement();
+            }
+            TokenType::While => {
+                todo!();
+            }
+            TokenType::Do => {
+                todo!();
+            }
+            TokenType::For => {
+                todo!();
+            }
+            TokenType::Foreach => {
+                todo!();
+            }
+            TokenType::Switch => {
+                todo!();
+            }
+            TokenType::Local => {
+                todo!();
+            }
+            TokenType::Return => {
+                self.next_token();
+                if !self.is_end_of_statement() {
+                    return Ok(Statement::Return(Some(self.comma_expression()?)));
+                } else {
+                    return Ok(Statement::Return(None));
+                }
+            }
+            TokenType::Yield => {
+                self.next_token();
+                if !self.is_end_of_statement() {
+                    return Ok(Statement::Yield(Some(self.comma_expression()?)));
+                } else {
+                    return Ok(Statement::Yield(None));
+                }
+            }
+            TokenType::Break => {
+                self.next_token();
+                return Ok(Statement::Break);
+            }
+            TokenType::Continue => {
+                self.next_token();
+                return Ok(Statement::Continue);
+            }
+            TokenType::Function => {
+                todo!();
+            }
+            TokenType::Class => {
+                todo!();
+            }
+            TokenType::Enum => {
+                todo!();
+            }
             TokenType::LeftCurly => {
                 self.next_token();
                 let statements = self.statements()?;
@@ -117,19 +174,15 @@ impl<'a> Parser<'a> {
 
                 return Ok(Statement::Statements(statements));
             }
-            TokenType::Break => {
-                self.next_token();
-
-                return Ok(Statement::Break);
+            TokenType::Try => {
+                todo!();
             }
-            TokenType::Continue => {
+            TokenType::Throw => {
                 self.next_token();
-
-                return Ok(Statement::Continue);
+                return Ok(Statement::Throw(self.comma_expression()?));
             }
             TokenType::Const => {
                 self.next_token();
-
                 return self.const_statement();
             }
             val => {
@@ -138,6 +191,22 @@ impl<'a> Parser<'a> {
                 // return Err(self.build_error(format!("Unhandled token '{}' in statement", val)));
             }
         }
+    }
+
+    fn if_statement(&mut self) -> Result<Statement, String> {
+        self.expect(TokenType::LeftParen)?;
+        let comma_expression = self.comma_expression()?;
+        self.expect(TokenType::RightParen)?;
+        
+        let if_block = self.statement()?;
+        let mut else_block = None;
+
+        if self.current_token_type() == TokenType::Else {
+            self.next_token();
+            else_block = Some(Box::new(self.statement()?));
+        }
+
+        return Ok(Statement::If(comma_expression, Box::new(if_block), else_block));
     }
 
     fn const_statement(&mut self) -> Result<Statement, String> {
@@ -175,9 +244,11 @@ impl<'a> Parser<'a> {
                 self.next_token();
                 match self.current_token_type() {
                     TokenType::IntegerLiteral => {
+                        self.next_token();
                         return Ok(Scalar::Integer);
                     }
                     TokenType::FloatLiteral => {
+                        self.next_token();
                         return Ok(Scalar::Float);
                     }
                     unhandled_type => {
@@ -246,12 +317,13 @@ impl<'a> Parser<'a> {
                 todo!();
             }
             TokenType::Minus => {
-                self.next_token();
                 match self.current_token_type() {
                     TokenType::IntegerLiteral => {
+                        self.next_token();
                         return Ok(Factor::Scalar(Scalar::Integer));
                     }
                     TokenType::FloatLiteral => {
+                        self.next_token();
                         return Ok(Factor::Scalar(Scalar::Float));
                     }
                     _ => {
@@ -287,11 +359,31 @@ impl<'a> Parser<'a> {
 
         match self.current_token_type() {
             TokenType::Newslot => {
-                let expression = self.expression()?;
-
-                expr_type = Some(ExpressionType::Newslot(Box::new(expression)));
+                expr_type = Some(ExpressionType::Newslot(Box::new(self.expression()?)));
             }
-            _ => todo!()
+            TokenType::Assign => {
+                expr_type = Some(ExpressionType::Assign(Box::new(self.expression()?)));
+            }
+            TokenType::MinusEqual => {
+                expr_type = Some(ExpressionType::MinusEqual(Box::new(self.expression()?)));
+            }
+            TokenType::PlusEqual => {
+                expr_type = Some(ExpressionType::PlusEqual(Box::new(self.expression()?)));
+            }
+            TokenType::MultiplyEqual => {
+                expr_type = Some(ExpressionType::MultiplyEqual(Box::new(self.expression()?)));
+            }
+            TokenType::DivideEqual => {
+                expr_type = Some(ExpressionType::DivideEqual(Box::new(self.expression()?)));
+            }
+            TokenType::Ternary => {
+                let true_case = self.expression()?;
+                self.expect(TokenType::Colon)?;
+                let false_case = self.expression()?;
+
+                expr_type = Some(ExpressionType::Ternary(Box::new(true_case), Box::new(false_case)));
+            }
+            _ => {}
         }
 
         return Ok(Expression { logical_or, expr_type });
@@ -300,7 +392,6 @@ impl<'a> Parser<'a> {
     fn array_init(&mut self) -> Result<Factor, String> {
         let mut expressions = Vec::new();
 
-        self.next_token();
         while self.current_token_type() != TokenType::RightSquare {
             expressions.push(self.expression()?);
 
