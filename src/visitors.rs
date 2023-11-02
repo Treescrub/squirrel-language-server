@@ -3,9 +3,36 @@ use tower_lsp::{Client, lsp_types::MessageType};
 use crate::ast::*;
 
 pub trait SimpleVisitor {
-    fn visit_script(&self, script: Script) {}
-    fn visit_statements(&self, statements: Statements) {}
-    fn visit_statement(&self, statement: Statement) {}
+    fn visit_script(&self, script: Script) {
+        for statement in script.statements {
+            self.visit_statement(statement);
+        }
+    }
+    fn visit_statements(&self, statements: Statements) {
+        for statement in statements.statements {
+            self.visit_statement(statement);
+        }
+    }
+    fn visit_statement(&self, statement: Statement) {
+        match statement {
+            Statement::If(condition, if_block, else_block) => {
+                self.visit_comma_expr(condition);
+                self.visit_statement(*if_block);
+                if else_block.is_some() {
+                    self.visit_statement(*else_block.unwrap());
+                }
+            }
+            Statement::While(condition, loop_body) => {
+                self.visit_comma_expr(condition);
+                self.visit_statement(*loop_body);
+            }
+            Statement::DoWhile(loop_body, condition) => {
+                self.visit_statement(*loop_body);
+                self.visit_comma_expr(condition);
+            }
+            _ => {todo!()}
+        }
+    }
     fn visit_expression(&self, expression: Expression) {}
     fn visit_comma_expr(&self, comma_expression: CommaExpression) {}
     fn visit_logical_or_exp(&self, logical_or: LogicalOrExpression) {}
@@ -24,9 +51,36 @@ pub trait SimpleVisitor {
 }
 
 pub trait SimpleVisitorMut {
-    fn visit_script(&mut self, script: Script) {}
-    fn visit_statements(&mut self, statements: Statements) {}
-    fn visit_statement(&mut self, statement: Statement) {}
+    fn visit_script(&mut self, script: Script) {
+        for statement in script.statements {
+            self.visit_statement(statement);
+        }
+    }
+    fn visit_statements(&mut self, statements: Statements) {
+        for statement in statements.statements {
+            self.visit_statement(statement);
+        }
+    }
+    fn visit_statement(&mut self, statement: Statement) {
+        match statement {
+            Statement::If(condition, if_block, else_block) => {
+                self.visit_comma_expr(condition);
+                self.visit_statement(*if_block);
+                if else_block.is_some() {
+                    self.visit_statement(*else_block.unwrap());
+                }
+            }
+            Statement::While(condition, loop_body) => {
+                self.visit_comma_expr(condition);
+                self.visit_statement(*loop_body);
+            }
+            Statement::DoWhile(loop_body, condition) => {
+                self.visit_statement(*loop_body);
+                self.visit_comma_expr(condition);
+            }
+            _ => {todo!()}
+        }
+    }
     fn visit_expression(&mut self, expression: Expression) {}
     fn visit_comma_expr(&mut self, comma_expression: CommaExpression) {}
     fn visit_logical_or_exp(&mut self, logical_or: LogicalOrExpression) {}
