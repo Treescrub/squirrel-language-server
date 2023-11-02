@@ -74,24 +74,23 @@ impl PrettyPrinter {
     fn print(&mut self, text: &str) {
         self.add_indents();
         self.text.push_str(text);
+        self.text.push('\n');
     }
 }
 
 impl SimpleVisitorMut for PrettyPrinter {
     fn visit_script(&mut self, script: Script) {
-        self.print(&format!("SCRIPT: {} statement(s)\n", script.statements.len()));
-        self.push_level();
+        self.print(&format!("SCRIPT: {} statement(s)", script.statements.len()));
+
         for statement in script.statements {
             self.visit_statement(statement);
         }
-
-        self.pop_level();
     }
 
     fn visit_statements(&mut self, statements: Statements) {
         self.push_level();
 
-        self.print("STATEMENTS\n");
+        self.print("STATEMENTS");
         for statement in statements.statements {
             self.visit_statement(statement);
         }
@@ -101,32 +100,45 @@ impl SimpleVisitorMut for PrettyPrinter {
 
     fn visit_statement(&mut self, statement: Statement) {
         self.push_level();
-        self.print("STATEMENT\n");
+        self.print("STATEMENT");
         match statement {
             Statement::Break => {
                 self.push_level();
-                self.print("BREAK\n");
+                self.print("BREAK");
                 self.pop_level();
             }
             Statement::Continue => {
                 self.push_level();
-                self.print("CONTINUE\n");
+                self.print("CONTINUE");
                 self.pop_level();
             }
             Statement::Const(id, scalar) => {
                 self.push_level();
-                self.print("CONST\n");
+                self.print("CONST");
                 self.pop_level();
             }
             Statement::Statements(statements) => self.visit_statements(statements),
+            Statement::If(condition, if_block, else_block) => {
+                self.push_level();
+                self.print("IF");
+                self.visit_comma_expr(condition);
+                self.visit_statement(*if_block);
+                if else_block.is_some() {
+                    self.visit_statement(*else_block.unwrap());
+                }
+                self.pop_level();
+            }
             Statement::CommaExpression(comma_expression) => {
                 self.push_level();
-                self.print("COMMA EXPRESSION\n");
+                self.print("COMMA EXPRESSION");
+                for expression in comma_expression.expressions {
+                    self.visit_expression(expression);
+                }
                 self.pop_level();
             }
             _ => {
                 self.push_level();
-                self.print("unknown statement\n");
+                self.print("unknown statement");
                 self.pop_level();
             },
         }
@@ -135,6 +147,153 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_logical_or_exp(&mut self, logical_or: LogicalOrExpression) {
+        if logical_or.right.is_none() {
+            self.visit_logical_and_exp(logical_or.left);
+            return;
+        }
+
         self.push_level();
+        self.print("LOGICAL OR");
+        self.pop_level();
+    }
+
+    fn visit_logical_and_exp(&mut self, logical_and: LogicalAndExpression) {
+        if logical_and.right.is_none() {
+            self.visit_bitwise_or_exp(logical_and.left);
+            return;
+        }
+
+        self.push_level();
+        self.print("LOGICAL AND");
+        self.pop_level();
+    }
+
+    fn visit_bitwise_or_exp(&mut self, bitwise_or: BitwiseOrExpression) {
+        if bitwise_or.right.is_none() {
+            self.visit_bitwise_xor_exp(bitwise_or.left);
+            return;
+        }
+
+        self.push_level();
+        self.print("BITWISE OR");
+        self.pop_level();
+    }
+
+    fn visit_bitwise_xor_exp(&mut self, bitwise_xor: BitwiseXorExpression) {
+        if bitwise_xor.right.is_none() {
+            self.visit_bitwise_and_exp(bitwise_xor.left);
+            return;
+        }
+
+        self.push_level();
+        self.print("BITWISE XOR");
+        self.pop_level();
+    }
+
+    fn visit_bitwise_and_exp(&mut self, bitwise_and: BitwiseAndExpression) {
+        if bitwise_and.right.is_none() {
+            self.visit_equal_exp(bitwise_and.left);
+            return;
+        }
+
+        self.push_level();
+        self.print("BITWISE AND");
+        self.pop_level();
+    }
+
+    fn visit_equal_exp(&mut self, equal: EqualExpression) {
+        if equal.right.is_none() {
+            self.visit_compare_exp(equal.left);
+            return;
+        }
+
+        self.push_level();
+        self.print("EQUAL");
+        self.pop_level();
+    }
+
+    fn visit_compare_exp(&mut self, compare: CompareExpression) {
+        if compare.right.is_none() {
+            self.visit_shift_exp(compare.left);
+            return;
+        }
+
+        self.push_level();
+        self.print("COMPARE");
+        self.pop_level();
+    }
+
+    fn visit_shift_exp(&mut self, shift: ShiftExpression) {
+        if shift.right.is_none() {
+            self.visit_plus_exp(shift.left);
+            return;
+        }
+
+        self.push_level();
+        self.print("SHIFT");
+        self.pop_level();
+    }
+
+    fn visit_plus_exp(&mut self, plus: PlusExpression) {
+        if plus.right.is_none() {
+            self.visit_multiply_exp(plus.left);
+            return;
+        }
+
+        self.push_level();
+        self.print("PLUS");
+        self.pop_level();
+    }
+
+    fn visit_multiply_exp(&mut self, multiply: MultiplyExpression) {
+        if multiply.right.is_none() {
+            self.visit_prefixed_exp(multiply.left);
+            return;
+        }
+
+        self.push_level();
+        self.print("MULTIPLY");
+        self.pop_level();
+    }
+
+    fn visit_prefixed_exp(&mut self, prefixed: PrefixedExpression) {
+        if prefixed.expr_type.is_none() {
+            self.visit_factor(prefixed.factor);
+            return;
+        }
+
+        self.push_level();
+        self.print("PREFIXED");
+        self.pop_level();
+    }
+
+    fn visit_factor(&mut self, factor: Factor) {
+        self.push_level();
+        self.print("FACTOR");
+        self.pop_level();
+    }
+
+    fn visit_expression(&mut self, expression: Expression) {
+        self.push_level();
+        self.print("EXPRESSION");
+        self.visit_logical_or_exp(*expression.logical_or);
+
+        if expression.expr_type.is_some() {
+            match expression.expr_type.unwrap() {
+                ExpressionType::Newslot(expression) => {
+                    self.push_level();
+                    self.print("NEWSLOT");
+                    self.visit_expression(*expression);
+                    self.pop_level();
+                },
+                ExpressionType::Assign(_) => todo!(),
+                ExpressionType::MinusEqual(_) => todo!(),
+                ExpressionType::PlusEqual(_) => todo!(),
+                ExpressionType::MultiplyEqual(_) => todo!(),
+                ExpressionType::DivideEqual(_) => todo!(),
+                ExpressionType::Ternary(_, _) => todo!(),
+            }
+        }
+        self.pop_level();
     }
 }
