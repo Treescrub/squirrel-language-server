@@ -1,28 +1,21 @@
-use tower_lsp::Client;
 
 use crate::ast::*;
 use crate::lexer::*;
 
 pub struct Parser<'a> {
-    root_node: Option<Statement>,
     tokens: &'a Vec<Token>,
     token_index: usize,
-    client: &'a Client,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(tokens: &'a Vec<Token>, client: &'a Client) -> Self {
+    pub fn new(tokens: &'a Vec<Token>) -> Self {
         Self {
-            root_node: None,
             tokens,
             token_index: 0,
-            client,
         }
     }
     
     pub fn parse(&mut self) -> Result<Script, String> {
-        let client = self.client;
-
         return Ok(self.script()?);
     }
 
@@ -185,10 +178,8 @@ impl<'a> Parser<'a> {
                 self.next_token();
                 return self.const_statement();
             }
-            val => {
+            _ => {
                 return Ok(Statement::CommaExpression(self.comma_expression()?));
-                // self.next_token();
-                // return Err(self.build_error(format!("Unhandled token '{}' in statement", val)));
             }
         }
     }

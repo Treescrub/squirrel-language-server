@@ -1,8 +1,4 @@
-use crate::lexer::{Token, TokenType};
-
-trait AstNode {
-
-}
+use crate::lexer::TokenType;
 
 pub struct Script {
     pub statements: Vec<Statement>,

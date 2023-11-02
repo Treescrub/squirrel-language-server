@@ -117,7 +117,7 @@ impl LanguageServer for Backend {
             .log_message(MessageType::INFO, format!("tokens:\n{}", tokens))
             .await;
         
-        let mut parser: Parser = Parser::new(&lexer.tokens, &self.client);
+        let mut parser: Parser = Parser::new(&lexer.tokens);
         let parse_result = parser.parse();
         match parse_result {
             Ok(script) => {
