@@ -12,9 +12,9 @@ pub enum Statement {
     If(CommaExpression, Box<Statement>, Option<Box<Statement>>),
     While(CommaExpression, Box<Statement>),
     DoWhile(Box<Statement>, CommaExpression),
-    For(Option<ForInit>, Option<CommaExpression>, Option<CommaExpression>),
+    For(Option<ForInit>, Option<CommaExpression>, Option<CommaExpression>, Box<Statement>),
     ForEach(Identifier, Option<Identifier>, Expression, Box<Statement>),
-    Switch(CommaExpression, Vec<SwitchCases>),
+    Switch(CommaExpression, Vec<SwitchCase>),
     LocalDeclare(LocalDeclare),
     Return(Option<CommaExpression>),
     Yield(Option<CommaExpression>),
@@ -23,7 +23,7 @@ pub enum Statement {
     Function(FunctionIdentifier, Option<Expression>/* static env binding */, Vec<FunctionParam>, Box<Statement>),
     Class(Identifier), // TODO: figure out what the hell is going on here
     Enum(Identifier, Vec<EnumEntry>),
-    Statements(Statements),
+    StatementBlock(Statements),
     TryCatch(Box<Statement>, Identifier, Box<Statement>),
     Throw(CommaExpression),
     Const(Identifier, Scalar),
@@ -49,7 +49,7 @@ pub enum Factor {
     Identifier(Identifier),
     Constructor,
     This,
-    // root table access (::)
+    DoubleColon(Box<PrefixedExpression>),
     Null,
     ArrayInit(Vec<Expression>),
     TableInit, // TODO: params
@@ -57,7 +57,7 @@ pub enum Factor {
     FunctionExpression, // TODO: params
     DeclareClass, // TODO: params
     UnaryOp, // TODO: params
-    RawCall, // TODO: params
+    RawCall(FunctionCallArgs),
     Delete(Expression),
     LineInfo,
     FileInfo,
@@ -80,15 +80,32 @@ pub enum FunctionParam {
 }
 
 pub struct FunctionCallArgs {
-    args: Vec<Expression>,
+    pub args: Vec<Expression>,
+    pub post_call_init: Option<PostCallInitialize>,
 }
 
-pub struct SwitchCases {
+pub struct PostCallInitialize {
+    pub entries: Vec<PostCallInitializeEntry>,
+}
 
+pub enum PostCallInitializeEntry {
+    ArrayStyle(CommaExpression, Expression),
+    TableStyle(Identifier, Expression),
+}
+
+pub struct SwitchCase {
+    pub condition: Expression,
+    pub body: Statements,
 }
 
 pub enum LocalDeclare {
+    Function,
+    Assign(Vec<AssignExpression>),
+}
 
+pub struct AssignExpression {
+    pub identifier: Identifier,
+    pub value: Option<Expression>,
 }
 
 pub enum ForInit {

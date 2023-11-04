@@ -171,7 +171,7 @@ impl SimpleVisitorMut for PrettyPrinter {
                 self.print("CONST");
                 self.pop_level();
             }
-            Statement::Statements(statements) => self.visit_statements(statements),
+            Statement::StatementBlock(statements) => self.visit_statements(statements),
             Statement::If(condition, if_block, else_block) => {
                 self.push_level();
                 self.print("IF");
