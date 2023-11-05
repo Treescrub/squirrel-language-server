@@ -1,4 +1,4 @@
-use crate::lexer::TokenType;
+use crate::lexer::{TokenType, Token};
 
 pub struct Script {
     pub statements: Vec<Statement>,
@@ -20,9 +20,9 @@ pub enum Statement {
     Yield(Option<CommaExpression>),
     Break,
     Continue,
-    Function(FunctionIdentifier, Option<Expression>/* static env binding */, Vec<FunctionParam>, Box<Statement>),
+    Function(FunctionIdentifier, Option<Expression>/* static env binding */, FunctionParams, Box<Statement>),
     Class(Identifier), // TODO: figure out what the hell is going on here
-    Enum(Identifier, Vec<EnumEntry>),
+    Enum(Identifier, EnumValues),
     StatementBlock(Statements),
     TryCatch(Box<Statement>, Identifier, Box<Statement>),
     Throw(CommaExpression),
@@ -30,9 +30,13 @@ pub enum Statement {
     CommaExpression(CommaExpression)
 }
 
+pub struct EnumValues {
+    pub values: Vec<EnumEntry>,
+}
+
 pub struct EnumEntry {
-    key: Identifier,
-    value: Option<Scalar>,
+    pub key: Identifier,
+    pub value: Option<Scalar>,
 }
 
 pub enum Scalar {
@@ -69,8 +73,11 @@ pub struct UnaryOp {
 }
 
 pub struct FunctionIdentifier {
-    in_root: bool,
-    identifiers: Vec<Identifier>,
+    pub identifiers: Vec<Identifier>,
+}
+
+pub struct FunctionParams {
+    pub params: Vec<FunctionParam>,
 }
 
 pub enum FunctionParam {
@@ -202,4 +209,12 @@ pub enum PrefixedExpressionType {
 
 pub struct Identifier {
     pub value: String,
+}
+
+impl From<&Token> for Identifier {
+    fn from(value: &Token) -> Self {
+        Self {
+            value: value.clone_svalue(),
+        }
+    }
 }

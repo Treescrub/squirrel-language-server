@@ -245,6 +245,12 @@ impl fmt::Display for Token {
     }
 }
 
+impl Token {
+    pub fn clone_svalue(&self) -> String {
+        return self.svalue.as_ref().unwrap().clone();
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct TokenLocation {
     pub line: u32,

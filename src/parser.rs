@@ -151,19 +151,19 @@ impl<'a> Parser<'a> {
                 return Ok(Statement::Continue);
             }
             TokenType::Function => {
-                todo!();
+                return self.function_statement();
             }
             TokenType::Class => {
                 todo!();
             }
             TokenType::Enum => {
-                todo!();
+                return self.enum_statement();
             }
             TokenType::LeftCurly => {
                 return self.statement_block();
             }
             TokenType::Try => {
-                todo!();
+                return self.try_statement();
             }
             TokenType::Throw => {
                 self.next_token();
@@ -299,12 +299,118 @@ impl<'a> Parser<'a> {
         return Ok(Statement::Switch(value, switch_cases));
     }
 
+    fn function_statement(&mut self) -> Result<Statement, String> {
+        self.next_token();
+
+        let mut identifiers = Vec::new();
+        identifiers.push(Identifier::from(self.expect(TokenType::Identifier)?));
+
+        while self.current_token_type() == TokenType::DoubleColon {
+            self.next_token();
+            identifiers.push(Identifier::from(self.expect(TokenType::Identifier)?));
+        }
+
+        let mut bind_env = None;
+
+        if self.current_token_type() == TokenType::LeftSquare {
+            self.next_token();
+            let env_expression = self.expression()?;
+            self.expect(TokenType::RightSquare)?;
+            
+            bind_env = Some(env_expression);
+        }
+
+        let function_identifier = FunctionIdentifier { identifiers };
+        let params = self.function_params()?;
+        let body = self.statement()?;
+
+        return Ok(Statement::Function(function_identifier, bind_env, params, Box::new(body)));
+    }
+
+    fn enum_statement(&mut self) -> Result<Statement, String> {
+        self.next_token();
+        let name = Identifier::from(self.expect(TokenType::Identifier)?);
+        self.expect(TokenType::LeftCurly)?;
+
+        let mut entries = Vec::new();
+
+        while self.current_token_type() != TokenType::RightCurly {
+            let entry_name = Identifier::from(self.expect(TokenType::Identifier)?);
+            let mut entry_value = None;
+
+            if self.current_token_type() == TokenType::Assign {
+                self.next_token();
+                entry_value = Some(self.scalar()?);
+            }
+
+            entries.push(EnumEntry { key: entry_name, value: entry_value });
+
+            if self.current_token_type() == TokenType::Comma {
+                self.next_token();
+            }
+        }
+        self.next_token();
+
+        return Ok(Statement::Enum(name, EnumValues { values: entries }));
+    }
+
     fn statement_block(&mut self) -> Result<Statement, String> {
         self.next_token();
         let statements = self.statements()?;
         self.expect(TokenType::RightCurly)?;
 
         return Ok(Statement::StatementBlock(statements));
+    }
+
+    fn try_statement(&mut self) -> Result<Statement, String> {
+        self.next_token();
+        let try_body = self.statement()?;
+        self.expect(TokenType::Catch)?;
+        self.expect(TokenType::LeftParen)?;
+        let identifier = Identifier { value: self.expect(TokenType::Identifier)?.svalue.as_ref().unwrap().clone() };
+        self.expect(TokenType::RightParen)?;
+        let catch_body = self.statement()?;
+
+        return Ok(Statement::TryCatch(Box::new(try_body), identifier, Box::new(catch_body)));
+    }
+
+    fn function_params(&mut self) -> Result<FunctionParams, String> {
+        self.expect(TokenType::LeftParen)?;
+
+        let mut params = Vec::new();
+
+        while self.current_token_type() != TokenType::RightParen {
+            if self.current_token_type() == TokenType::Varargs {
+                self.next_token();
+                
+                if self.current_token_type() != TokenType::RightParen {
+                    return Err(self.build_error(String::from("expected ')' after varargs")));
+                }
+
+                params.push(FunctionParam::VarParams);
+            } else {
+                let name = Identifier::from(self.expect(TokenType::Identifier)?);
+
+                if self.current_token_type() == TokenType::Assign {
+                    self.next_token();
+                    let default_val = self.expression()?;
+
+                    params.push(FunctionParam::Default(name, default_val));
+                } else {
+                    params.push(FunctionParam::Normal(name));
+                }
+            }
+
+            if self.current_token_type() == TokenType::Comma {
+                self.next_token();
+            } else if self.current_token_type() != TokenType::RightParen {
+                return Err(self.build_error(String::from("expected ')' or ','")));
+            }
+        }
+
+        self.expect(TokenType::RightParen)?;
+
+        return Ok(FunctionParams { params });
     }
 
     fn local_declare(&mut self) -> Result<LocalDeclare, String> {
