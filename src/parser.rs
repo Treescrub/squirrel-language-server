@@ -82,12 +82,12 @@ impl<'a> Parser<'a> {
 
     fn script(&mut self) -> Result<Script, String> {
         let mut statements: Vec<Statement> = Vec::new();
-        // while !self.is_end_of_tokens() {
+        while !self.is_end_of_tokens() {
             statements.push(self.statement()?);
             if self.prev_token().token_type != TokenType::RightCurly && self.prev_token().token_type != TokenType::Semicolon {
                 self.optional_semicolon()?;
             }
-        // }
+        }
 
         return Ok(Script { statements })
     }
