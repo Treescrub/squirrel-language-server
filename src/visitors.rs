@@ -533,7 +533,13 @@ impl SimpleVisitorMut for PrettyPrinter {
                 ExpressionType::PlusEqual(_) => todo!(),
                 ExpressionType::MultiplyEqual(_) => todo!(),
                 ExpressionType::DivideEqual(_) => todo!(),
-                ExpressionType::Ternary(_, _) => todo!(),
+                ExpressionType::Ternary(true_case, false_case) => {
+                    self.push_level();
+                    self.print("TERNARY");
+                    self.visit_expression(*true_case);
+                    self.visit_expression(*false_case);
+                    self.pop_level();
+                },
             }
         }
         self.pop_level();
