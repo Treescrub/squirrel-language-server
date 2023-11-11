@@ -1,4 +1,3 @@
-
 use crate::ast::*;
 use crate::lexer::*;
 
@@ -159,7 +158,7 @@ impl<'a> Parser<'a> {
                 return self.function_statement();
             }
             TokenType::Class => {
-                todo!();
+                todo!("Class statement not implemented");
             }
             TokenType::Enum => {
                 return self.enum_statement();
@@ -588,16 +587,16 @@ impl<'a> Parser<'a> {
                 return Ok(self.array_init()?);
             }
             TokenType::LeftCurly => {
-                todo!();
+                todo!("Table factor not implemented");
             }
             TokenType::Function => {
-                todo!();
+                todo!("Function factor not implemented");
             }
             TokenType::At => {
-                todo!();
+                todo!("Lambda function factor not implemented");
             }
             TokenType::Class => {
-                todo!();
+                todo!("Class factor not implemented");
             }
             TokenType::Minus => {
                 self.next_token();
