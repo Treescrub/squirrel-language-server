@@ -428,7 +428,18 @@ impl<'a> Parser<'a> {
     fn local_declare(&mut self) -> Result<LocalDeclare, String> {
         self.next_token();
         if self.current_token_type() == TokenType::Function {
-            todo!();
+            self.next_token();
+            let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
+            let mut bind_env = None;
+
+            if self.current_token_type() == TokenType::LeftSquare {
+                bind_env = Some(self.expression()?);
+                self.expect(TokenType::RightSquare)?;
+            }
+
+            let params = self.function_params()?;
+
+            return Ok(LocalDeclare::Function(identifier, bind_env, params));
         }
 
         let mut assign_expressions = Vec::new();

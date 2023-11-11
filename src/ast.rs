@@ -107,7 +107,7 @@ pub struct SwitchCase {
 }
 
 pub enum LocalDeclare {
-    Function,
+    Function(Identifier, Option<Expression>/*bind env*/, FunctionParams),
     Assign(Vec<AssignExpression>),
 }
 
