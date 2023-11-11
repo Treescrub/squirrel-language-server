@@ -64,7 +64,7 @@ impl<'a> Parser<'a> {
     }
 
     fn is_end_of_tokens(&self) -> bool {
-        return self.token_index == self.tokens.len();
+        return self.current_token_type() == TokenType::EndOfTokens;
     }
     
     fn is_end_of_statement(&self) -> bool {

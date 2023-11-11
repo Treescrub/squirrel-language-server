@@ -93,6 +93,7 @@ pub enum TokenType {
     Dot,                    // .
     NewLine,                // '\n', only used for delimiting
     At,                     // @
+    EndOfTokens,            // internal use, signals end of tokens
     Invalid                 // (invalid token)
 }
 
@@ -189,8 +190,8 @@ impl TokenType {
             TokenType::Dot => ".",
             TokenType::NewLine => "\\n",
             TokenType::At => "@",
+            TokenType::EndOfTokens => "(EOT)",
             TokenType::Invalid => "INVALID_TOKEN",
-
         }
     }
 }
@@ -635,7 +636,9 @@ impl<'a,'b> Lexer<'b> {
 
         loop {
             if self.cur_char == '\0' {
-                break;
+                self.start_token();
+                self.end_token(TokenType::EndOfTokens);
+                return;
             }
             if self.cur_char == ' ' || self.cur_char == '\t' || self.cur_char == '\r' {
                 self.next();
