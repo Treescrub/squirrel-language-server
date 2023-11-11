@@ -16,7 +16,10 @@ impl<'a> Parser<'a> {
     }
     
     pub fn parse(&mut self) -> Result<Script, String> {
-        return Ok(self.script()?);
+        // hacky way to prevent stack overflow :/
+        return stacker::grow(100 * 1024 * 1024, || {
+            return Ok(self.script()?);
+        });
     }
 
     fn next_token(&mut self) -> &Token {
@@ -75,6 +78,8 @@ impl<'a> Parser<'a> {
 
         return message;
     }
+
+    // ---------------------------------------------------
 
     fn script(&mut self) -> Result<Script, String> {
         let mut statements: Vec<Statement> = Vec::new();
@@ -170,7 +175,6 @@ impl<'a> Parser<'a> {
                 return Ok(Statement::Throw(self.comma_expression()?));
             }
             TokenType::Const => {
-                self.next_token();
                 return self.const_statement();
             }
             _ => {
@@ -184,7 +188,7 @@ impl<'a> Parser<'a> {
         self.expect(TokenType::LeftParen)?;
         let comma_expression = self.comma_expression()?;
         self.expect(TokenType::RightParen)?;
-        
+
         let if_block = self.statement()?;
         let mut else_block = None;
 
@@ -327,6 +331,14 @@ impl<'a> Parser<'a> {
         return Ok(Statement::Function(function_identifier, bind_env, params, Box::new(body)));
     }
 
+    fn class_statement(&mut self) -> Result<Statement, String> {
+        self.next_token();
+        self.prefixed_expression()?;
+        self.class_expression()?;
+
+        todo!();
+    }
+
     fn enum_statement(&mut self) -> Result<Statement, String> {
         self.next_token();
         let name = Identifier::from(self.expect(TokenType::Identifier)?);
@@ -435,7 +447,7 @@ impl<'a> Parser<'a> {
     }
 
     fn assign_expression(&mut self) -> Result<AssignExpression, String> {
-        let identifier = Identifier { value: self.expect(TokenType::Identifier)?.svalue.as_ref().unwrap().clone() };
+        let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
         let mut expression = None;
 
         if self.current_token_type() == TokenType::Assign {
@@ -446,6 +458,7 @@ impl<'a> Parser<'a> {
     }
 
     fn const_statement(&mut self) -> Result<Statement, String> {
+        self.next_token();
         let id = self.expect(TokenType::Identifier)?.svalue.as_ref().unwrap().clone();
         self.expect(TokenType::Assign)?;
         let scalar = self.scalar()?;
@@ -505,50 +518,62 @@ impl<'a> Parser<'a> {
         match token_type {
             TokenType::StringLiteral => {
                 self.next_token();
+
                 return Ok(Factor::Scalar(Scalar::StringLiteral));
             }
             TokenType::Base => {
                 self.next_token();
+
                 return Ok(Factor::Base);
             }
             TokenType::Identifier => {
                 self.next_token();
-                return Ok(Factor::Identifier(Identifier { value: token.svalue.as_ref().unwrap().clone() }));
+
+                return Ok(Factor::Identifier(Identifier::from(token)));
             }
             TokenType::Constructor => {
                 self.next_token();
+
                 return Ok(Factor::Constructor);
             }
             TokenType::This => {
                 self.next_token();
+
                 return Ok(Factor::This);
             }
             TokenType::DoubleColon => {
                 self.next_token();
+
                 return Ok(Factor::DoubleColon(Box::new(self.prefixed_expression()?)));
             }
             TokenType::Null => {
                 self.next_token();
+
                 return Ok(Factor::Null);
             }
             TokenType::IntegerLiteral => {
                 self.next_token();
+
                 return Ok(Factor::Scalar(Scalar::Integer));
             }
             TokenType::FloatLiteral => {
                 self.next_token();
+
                 return Ok(Factor::Scalar(Scalar::Float));
             }
             TokenType::True => {
                 self.next_token();
+
                 return Ok(Factor::Scalar(Scalar::True));
             }
             TokenType::False => {
                 self.next_token();
+
                 return Ok(Factor::Scalar(Scalar::False));
             }
             TokenType::LeftSquare => {
                 self.next_token();
+
                 return Ok(self.array_init()?);
             }
             TokenType::LeftCurly => {
@@ -565,26 +590,73 @@ impl<'a> Parser<'a> {
             }
             TokenType::Minus => {
                 self.next_token();
+
                 match self.current_token_type() {
                     TokenType::IntegerLiteral => {
                         self.next_token();
+
                         return Ok(Factor::Scalar(Scalar::Integer));
                     }
                     TokenType::FloatLiteral => {
                         self.next_token();
+
                         return Ok(Factor::Scalar(Scalar::Float));
                     }
                     _ => {
                         todo!();
+                        //return Ok(Factor::UnaryOp(Box::new(self.unary_op()?)));
                     }
                 }
             }
             TokenType::LogicalNot => {
-                todo!();
+                return Ok(Factor::UnaryOp(Box::new(self.unary_op()?)));
+            }
+            TokenType::BitwiseNot => {
+                return Ok(Factor::UnaryOp(Box::new(self.unary_op()?)));
+            }
+            TokenType::Typeof => {
+                return Ok(Factor::UnaryOp(Box::new(self.unary_op()?)));
+            }
+            TokenType::Resume => {
+                return Ok(Factor::UnaryOp(Box::new(self.unary_op()?)));
+            }
+            TokenType::Clone => {
+                return Ok(Factor::UnaryOp(Box::new(self.unary_op()?)));
             }
             TokenType::Rawcall => {
                 self.next_token();
+
                 return Ok(Factor::RawCall(self.function_call_args()?));
+            }
+            TokenType::MinusMinus => {
+                return Ok(Factor::UnaryOp(Box::new(self.unary_op()?)));
+            }
+            TokenType::PlusPlus => {
+                return Ok(Factor::UnaryOp(Box::new(self.unary_op()?)));
+            }
+            TokenType::Delete => {
+                self.next_token();
+                let prefixed_expression = self.prefixed_expression()?;
+
+                return Ok(Factor::Delete(Box::new(prefixed_expression)));
+            }
+            TokenType::LeftParen => {
+                todo!();
+                self.next_token();
+                let comma_expression = self.comma_expression()?;
+                self.expect(TokenType::RightParen)?;
+
+                return Ok(Factor::ParenExpression(comma_expression));
+            }
+            TokenType::LineInfo => {
+                self.next_token();
+
+                return Ok(Factor::LineInfo);
+            }
+            TokenType::FileInfo => {
+                self.next_token();
+
+                return Ok(Factor::FileInfo);
             }
             unhandled_type => {
                 return Err(self.build_error(format!("Unexpected token for factor: '{}'", unhandled_type)));
@@ -717,7 +789,7 @@ impl<'a> Parser<'a> {
             self.next_token();
             right = Some(self.bitwise_and_expression()?);
         }
-        
+
         return Ok(BitwiseXorExpression { left, right });
     }
 
@@ -826,9 +898,9 @@ impl<'a> Parser<'a> {
         match self.current_token_type() {
             TokenType::Dot => {
                 self.next_token();
-                let id = self.expect(TokenType::Identifier)?.svalue.as_ref().unwrap().clone();
+                let id = Identifier::from(self.expect(TokenType::Identifier)?);
 
-                expr_type = Some(PrefixedExpressionType::DotAccess(Identifier { value: id }));
+                expr_type = Some(PrefixedExpressionType::DotAccess(id));
             }
             TokenType::LeftSquare => {
                 self.next_token();
@@ -917,13 +989,14 @@ impl<'a> Parser<'a> {
         let operator: TokenType;
         match self.current_token_type() {
             TokenType::Minus | TokenType::BitwiseNot | TokenType::LogicalNot | TokenType::Typeof
-            | TokenType::Resume | TokenType::Clone => {
+            | TokenType::Resume | TokenType::Clone | TokenType::PlusPlus | TokenType::MinusMinus => {
                 operator = self.current_token_type();
             }
             token_type => {
                 return Err(self.build_error(format!("unary op with unhandled token '{}'", token_type)));
             }
         }
+        self.next_token();
         let expression = self.prefixed_expression()?;
 
         return Ok(UnaryOp { operator, expression });

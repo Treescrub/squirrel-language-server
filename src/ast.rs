@@ -60,9 +60,10 @@ pub enum Factor {
     DeclareFunction, // TODO: params
     FunctionExpression, // TODO: params
     DeclareClass, // TODO: params
-    UnaryOp, // TODO: params
+    UnaryOp(Box<UnaryOp>),
     RawCall(FunctionCallArgs),
-    Delete(Expression),
+    Delete(Box<PrefixedExpression>),
+    ParenExpression(CommaExpression),
     LineInfo,
     FileInfo,
 }

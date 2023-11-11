@@ -152,12 +152,33 @@ impl LanguageServer for Backend {
         for content_change in &params.content_changes {
             state.doc_manager.edit_file(&content_change.text, &params.text_document.uri, content_change.range.unwrap());
         }
+
         /*self.client
             .log_message(MessageType::INFO, format!("contents: {}", state.doc_manager.get(&params.text_document.uri).unwrap()))
             .await;*/
     }
 
-    async fn did_save(&self, _: DidSaveTextDocumentParams) {
+    async fn did_save(&self, params: DidSaveTextDocumentParams) {
+        let state = self.state.lock().await;
+        let mut lexer: Lexer = Lexer::new(state.doc_manager.get(&params.text_document.uri).unwrap());
+        lexer.lex();
+        
+        let mut parser: Parser = Parser::new(&lexer.tokens);
+        let parse_result = parser.parse();
+        match parse_result {
+            Ok(script) => {
+                self.client.log_message(MessageType::INFO, "Successfully parsed").await;
+                let mut pretty_printer = PrettyPrinter::new();
+
+                pretty_printer.visit_script(script);
+                self.client.log_message(MessageType::INFO, "Pretty printer:").await;
+                self.client.log_message(MessageType::LOG, pretty_printer.text).await;
+            }
+            Err(message) => {
+                self.client.log_message(MessageType::ERROR, format!("Failed to parse: {}", message)).await;
+            }
+        }
+
         self.client
             .log_message(MessageType::INFO, "file saved!")
             .await;
