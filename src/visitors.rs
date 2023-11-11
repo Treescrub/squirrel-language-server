@@ -1,5 +1,3 @@
-use tower_lsp::{Client, lsp_types::MessageType};
-
 use crate::ast::*;
 
 pub trait SimpleVisitor {
@@ -33,19 +31,114 @@ pub trait SimpleVisitor {
             _ => {todo!()}
         }
     }
-    fn visit_expression(&self, expression: Expression) {}
-    fn visit_comma_expr(&self, comma_expression: CommaExpression) {}
-    fn visit_logical_or_exp(&self, logical_or: LogicalOrExpression) {}
-    fn visit_logical_and_exp(&self, logical_and: LogicalAndExpression) {}
-    fn visit_bitwise_or_exp(&self, bitwise_or: BitwiseOrExpression) {}
-    fn visit_bitwise_xor_exp(&self, bitwise_xor: BitwiseXorExpression) {}
-    fn visit_bitwise_and_exp(&self, bitwise_and: BitwiseAndExpression) {}
-    fn visit_equal_exp(&self, equal: EqualExpression) {}
-    fn visit_compare_exp(&self, compare: CompareExpression) {}
-    fn visit_shift_exp(&self, shift: ShiftExpression) {}
-    fn visit_plus_exp(&self, plus: PlusExpression) {}
-    fn visit_multiply_exp(&self, multiply: MultiplyExpression) {}
-    fn visit_prefixed_exp(&self, prefixed: PrefixedExpression) {}
+    fn visit_expression(&self, expression: Expression) {
+        self.visit_logical_or_exp(*expression.logical_or);
+
+        if expression.expr_type.is_none() {
+            return;
+        }
+
+        match expression.expr_type.unwrap() {
+            ExpressionType::Newslot(value) => self.visit_expression(*value),
+            ExpressionType::Assign(value) => self.visit_expression(*value),
+            ExpressionType::MinusEqual(value) => self.visit_expression(*value),
+            ExpressionType::PlusEqual(value) => self.visit_expression(*value),
+            ExpressionType::MultiplyEqual(value) => self.visit_expression(*value),
+            ExpressionType::DivideEqual(value) => self.visit_expression(*value),
+            ExpressionType::Ternary(true_case, false_case) => {
+                self.visit_expression(*true_case);
+                self.visit_expression(*false_case);
+            },
+        }
+    }
+    fn visit_comma_expr(&self, comma_expression: CommaExpression) {
+        for expression in comma_expression.expressions {
+            self.visit_expression(expression);
+        }
+    }
+    fn visit_logical_or_exp(&self, logical_or: LogicalOrExpression) {
+        self.visit_logical_and_exp(logical_or.left);
+
+        if logical_or.right.is_some() {
+            self.visit_logical_or_exp(*logical_or.right.unwrap());
+        }
+    }
+    fn visit_logical_and_exp(&self, logical_and: LogicalAndExpression) {
+        self.visit_bitwise_or_exp(logical_and.left);
+        
+        if logical_and.right.is_some() {
+            self.visit_logical_and_exp(*logical_and.right.unwrap())
+        }
+    }
+    fn visit_bitwise_or_exp(&self, bitwise_or: BitwiseOrExpression) {
+        self.visit_bitwise_xor_exp(bitwise_or.left);
+
+        if bitwise_or.right.is_some() {
+            self.visit_bitwise_xor_exp(bitwise_or.right.unwrap());
+        }
+    }
+    fn visit_bitwise_xor_exp(&self, bitwise_xor: BitwiseXorExpression) {
+        self.visit_bitwise_and_exp(bitwise_xor.left);
+
+        if bitwise_xor.right.is_some() {
+            self.visit_bitwise_and_exp(bitwise_xor.right.unwrap());
+        }
+    }
+    fn visit_bitwise_and_exp(&self, bitwise_and: BitwiseAndExpression) {
+        self.visit_equal_exp(bitwise_and.left);
+
+        if bitwise_and.right.is_some() {
+            self.visit_equal_exp(bitwise_and.right.unwrap());
+        }
+    }
+    fn visit_equal_exp(&self, equal: EqualExpression) {
+        self.visit_compare_exp(equal.left);
+
+        if equal.right.is_some() {
+            self.visit_compare_exp(equal.right.unwrap());
+        }
+    }
+    fn visit_compare_exp(&self, compare: CompareExpression) {
+        self.visit_shift_exp(compare.left);
+
+        if compare.right.is_some() {
+            self.visit_shift_exp(compare.right.unwrap());
+        }
+    }
+    fn visit_shift_exp(&self, shift: ShiftExpression) {
+        self.visit_plus_exp(shift.left);
+
+        if shift.right.is_some() {
+            self.visit_plus_exp(shift.right.unwrap());
+        }
+    }
+    fn visit_plus_exp(&self, plus: PlusExpression) {
+        self.visit_multiply_exp(plus.left);
+
+        if plus.right.is_some() {
+            self.visit_multiply_exp(plus.right.unwrap());
+        }
+    }
+    fn visit_multiply_exp(&self, multiply: MultiplyExpression) {
+        self.visit_prefixed_exp(multiply.left);
+
+        if multiply.right.is_some() {
+            self.visit_prefixed_exp(multiply.right.unwrap());
+        }
+    }
+    fn visit_prefixed_exp(&self, prefixed: PrefixedExpression) {
+        self.visit_factor(prefixed.factor);
+
+        if prefixed.expr_type.is_some() {
+            match prefixed.expr_type.unwrap() {
+                PrefixedExpressionType::DotAccess(identifier) => self.visit_identifier(identifier),
+                PrefixedExpressionType::ArrayStyleAccess(expression) => self.visit_expression(expression),
+                PrefixedExpressionType::PostIncrement => {},
+                PrefixedExpressionType::PostDecrement => {},
+                PrefixedExpressionType::FunctionCall(_) => todo!(),
+            }
+        }
+    }
     fn visit_factor(&self, factor: Factor) {}
     fn visit_identifier(&self, identifier: Identifier) {}
 }
@@ -81,19 +174,114 @@ pub trait SimpleVisitorMut {
             _ => {todo!()}
         }
     }
-    fn visit_expression(&mut self, expression: Expression) {}
-    fn visit_comma_expr(&mut self, comma_expression: CommaExpression) {}
-    fn visit_logical_or_exp(&mut self, logical_or: LogicalOrExpression) {}
-    fn visit_logical_and_exp(&mut self, logical_and: LogicalAndExpression) {}
-    fn visit_bitwise_or_exp(&mut self, bitwise_or: BitwiseOrExpression) {}
-    fn visit_bitwise_xor_exp(&mut self, bitwise_xor: BitwiseXorExpression) {}
-    fn visit_bitwise_and_exp(&mut self, bitwise_and: BitwiseAndExpression) {}
-    fn visit_equal_exp(&mut self, equal: EqualExpression) {}
-    fn visit_compare_exp(&mut self, compare: CompareExpression) {}
-    fn visit_shift_exp(&mut self, shift: ShiftExpression) {}
-    fn visit_plus_exp(&mut self, plus: PlusExpression) {}
-    fn visit_multiply_exp(&mut self, multiply: MultiplyExpression) {}
-    fn visit_prefixed_exp(&mut self, prefixed: PrefixedExpression) {}
+    fn visit_expression(&mut self, expression: Expression) {
+        self.visit_logical_or_exp(*expression.logical_or);
+
+        if expression.expr_type.is_none() {
+            return;
+        }
+
+        match expression.expr_type.unwrap() {
+            ExpressionType::Newslot(value) => self.visit_expression(*value),
+            ExpressionType::Assign(value) => self.visit_expression(*value),
+            ExpressionType::MinusEqual(value) => self.visit_expression(*value),
+            ExpressionType::PlusEqual(value) => self.visit_expression(*value),
+            ExpressionType::MultiplyEqual(value) => self.visit_expression(*value),
+            ExpressionType::DivideEqual(value) => self.visit_expression(*value),
+            ExpressionType::Ternary(true_case, false_case) => {
+                self.visit_expression(*true_case);
+                self.visit_expression(*false_case);
+            },
+        }
+    }
+    fn visit_comma_expr(&mut self, comma_expression: CommaExpression) {
+        for expression in comma_expression.expressions {
+            self.visit_expression(expression);
+        }
+    }
+    fn visit_logical_or_exp(&mut self, logical_or: LogicalOrExpression) {
+        self.visit_logical_and_exp(logical_or.left);
+
+        if logical_or.right.is_some() {
+            self.visit_logical_or_exp(*logical_or.right.unwrap());
+        }
+    }
+    fn visit_logical_and_exp(&mut self, logical_and: LogicalAndExpression) {
+        self.visit_bitwise_or_exp(logical_and.left);
+        
+        if logical_and.right.is_some() {
+            self.visit_logical_and_exp(*logical_and.right.unwrap())
+        }
+    }
+    fn visit_bitwise_or_exp(&mut self, bitwise_or: BitwiseOrExpression) {
+        self.visit_bitwise_xor_exp(bitwise_or.left);
+
+        if bitwise_or.right.is_some() {
+            self.visit_bitwise_xor_exp(bitwise_or.right.unwrap());
+        }
+    }
+    fn visit_bitwise_xor_exp(&mut self, bitwise_xor: BitwiseXorExpression) {
+        self.visit_bitwise_and_exp(bitwise_xor.left);
+
+        if bitwise_xor.right.is_some() {
+            self.visit_bitwise_and_exp(bitwise_xor.right.unwrap());
+        }
+    }
+    fn visit_bitwise_and_exp(&mut self, bitwise_and: BitwiseAndExpression) {
+        self.visit_equal_exp(bitwise_and.left);
+
+        if bitwise_and.right.is_some() {
+            self.visit_equal_exp(bitwise_and.right.unwrap());
+        }
+    }
+    fn visit_equal_exp(&mut self, equal: EqualExpression) {
+        self.visit_compare_exp(equal.left);
+
+        if equal.right.is_some() {
+            self.visit_compare_exp(equal.right.unwrap());
+        }
+    }
+    fn visit_compare_exp(&mut self, compare: CompareExpression) {
+        self.visit_shift_exp(compare.left);
+
+        if compare.right.is_some() {
+            self.visit_shift_exp(compare.right.unwrap());
+        }
+    }
+    fn visit_shift_exp(&mut self, shift: ShiftExpression) {
+        self.visit_plus_exp(shift.left);
+
+        if shift.right.is_some() {
+            self.visit_plus_exp(shift.right.unwrap());
+        }
+    }
+    fn visit_plus_exp(&mut self, plus: PlusExpression) {
+        self.visit_multiply_exp(plus.left);
+
+        if plus.right.is_some() {
+            self.visit_multiply_exp(plus.right.unwrap());
+        }
+    }
+    fn visit_multiply_exp(&mut self, multiply: MultiplyExpression) {
+        self.visit_prefixed_exp(multiply.left);
+
+        if multiply.right.is_some() {
+            self.visit_prefixed_exp(multiply.right.unwrap());
+        }
+    }
+    fn visit_prefixed_exp(&mut self, prefixed: PrefixedExpression) {
+        self.visit_factor(prefixed.factor);
+
+        if prefixed.expr_type.is_some() {
+            match prefixed.expr_type.unwrap() {
+                PrefixedExpressionType::DotAccess(identifier) => self.visit_identifier(identifier),
+                PrefixedExpressionType::ArrayStyleAccess(expression) => self.visit_expression(expression),
+                PrefixedExpressionType::PostIncrement => {},
+                PrefixedExpressionType::PostDecrement => {},
+                PrefixedExpressionType::FunctionCall(_) => todo!(),
+            }
+        }
+    }
     fn visit_factor(&mut self, factor: Factor) {}
     fn visit_identifier(&mut self, identifier: Identifier) {}
 }
