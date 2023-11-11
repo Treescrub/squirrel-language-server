@@ -461,6 +461,7 @@ impl<'a> Parser<'a> {
         let mut expression = None;
 
         if self.current_token_type() == TokenType::Assign {
+            self.next_token();
             expression = Some(self.expression()?);
         }
 
