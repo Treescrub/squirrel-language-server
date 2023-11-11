@@ -683,24 +683,31 @@ impl<'a> Parser<'a> {
 
         match self.current_token_type() {
             TokenType::Newslot => {
+                self.next_token();
                 expr_type = Some(ExpressionType::Newslot(Box::new(self.expression()?)));
             }
             TokenType::Assign => {
+                self.next_token();
                 expr_type = Some(ExpressionType::Assign(Box::new(self.expression()?)));
             }
             TokenType::MinusEqual => {
+                self.next_token();
                 expr_type = Some(ExpressionType::MinusEqual(Box::new(self.expression()?)));
             }
             TokenType::PlusEqual => {
+                self.next_token();
                 expr_type = Some(ExpressionType::PlusEqual(Box::new(self.expression()?)));
             }
             TokenType::MultiplyEqual => {
+                self.next_token();
                 expr_type = Some(ExpressionType::MultiplyEqual(Box::new(self.expression()?)));
             }
             TokenType::DivideEqual => {
+                self.next_token();
                 expr_type = Some(ExpressionType::DivideEqual(Box::new(self.expression()?)));
             }
             TokenType::Ternary => {
+                self.next_token();
                 let true_case = self.expression()?;
                 self.expect(TokenType::Colon)?;
                 let false_case = self.expression()?;
