@@ -614,8 +614,7 @@ impl<'a> Parser<'a> {
                         return Ok(Factor::Scalar(Scalar::Float));
                     }
                     _ => {
-                        todo!();
-                        //return Ok(Factor::UnaryOp(Box::new(self.unary_op()?)));
+                        return Ok(Factor::UnaryOp(Box::new(self.unary_op()?)));
                     }
                 }
             }
@@ -652,7 +651,6 @@ impl<'a> Parser<'a> {
                 return Ok(Factor::Delete(Box::new(prefixed_expression)));
             }
             TokenType::LeftParen => {
-                todo!();
                 self.next_token();
                 let comma_expression = self.comma_expression()?;
                 self.expect(TokenType::RightParen)?;
