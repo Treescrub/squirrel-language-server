@@ -158,7 +158,7 @@ impl<'a> Parser<'a> {
                 return self.function_statement();
             }
             TokenType::Class => {
-                todo!("Class statement not implemented");
+                return self.class_statement();
             }
             TokenType::Enum => {
                 return self.enum_statement();
@@ -332,10 +332,10 @@ impl<'a> Parser<'a> {
 
     fn class_statement(&mut self) -> Result<Statement, String> {
         self.next_token();
-        self.prefixed_expression()?;
-        self.class_expression()?;
+        let class_name = self.prefixed_expression()?;
+        let class_body = self.class_expression()?;
 
-        todo!();
+        return Ok(Statement::Class(class_name, class_body));
     }
 
     fn enum_statement(&mut self) -> Result<Statement, String> {
@@ -591,7 +591,7 @@ impl<'a> Parser<'a> {
                 todo!("Table factor not implemented");
             }
             TokenType::Function => {
-                todo!("Function factor not implemented");
+                return self.function_expression();
             }
             TokenType::At => {
                 todo!("Lambda function factor not implemented");
@@ -727,6 +727,23 @@ impl<'a> Parser<'a> {
         }
 
         return Ok(Expression { logical_or, expr_type });
+    }
+
+    fn function_expression(&mut self) -> Result<Factor, String> {
+        self.next_token();
+
+        let mut bind_env = None;
+
+        if self.current_token_type() == TokenType::LeftSquare {
+            self.next_token();
+            bind_env = Some(self.expression()?);
+            self.expect(TokenType::RightSquare)?;
+        }
+
+        let params = self.function_params()?;
+        let body = self.statement()?;
+
+        return Ok(Factor::FunctionExpression(bind_env, params, Box::new(body)))
     }
 
     fn array_init(&mut self) -> Result<Factor, String> {

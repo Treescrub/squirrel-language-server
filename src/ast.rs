@@ -21,7 +21,7 @@ pub enum Statement {
     Break,
     Continue,
     Function(FunctionIdentifier, Option<Expression>/* static env binding */, FunctionParams, Box<Statement>),
-    Class(Identifier), // TODO: figure out what the hell is going on here
+    Class(PrefixedExpression, Factor/* class expr */),
     Enum(Identifier, EnumValues),
     StatementBlock(Statements),
     TryCatch(Box<Statement>, Identifier, Box<Statement>),
@@ -57,8 +57,7 @@ pub enum Factor {
     Null,
     ArrayInit(Vec<Expression>),
     TableInit, // TODO: params
-    DeclareFunction, // TODO: params
-    FunctionExpression, // TODO: params
+    FunctionExpression(Option<Expression> /* bind env */, FunctionParams, Box<Statement>),
     DeclareClass, // TODO: params
     UnaryOp(Box<UnaryOp>),
     RawCall(FunctionCallArgs),
