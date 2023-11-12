@@ -333,9 +333,9 @@ impl<'a> Parser<'a> {
     fn class_statement(&mut self) -> Result<Statement, String> {
         self.next_token();
         let class_name = self.prefixed_expression()?;
-        let class_body = self.class_expression()?;
+        let class_expression = self.class_expression()?;
 
-        return Ok(Statement::Class(class_name, class_body));
+        return Ok(Statement::Class(class_name, class_expression));
     }
 
     fn enum_statement(&mut self) -> Result<Statement, String> {
@@ -588,7 +588,7 @@ impl<'a> Parser<'a> {
                 return Ok(self.array_init()?);
             }
             TokenType::LeftCurly => {
-                return self.table_factor();
+                return Ok(Factor::TableInit(self.table()?));
             }
             TokenType::Function => {
                 return self.function_expression();
@@ -597,7 +597,9 @@ impl<'a> Parser<'a> {
                 return self.lambda_expression();
             }
             TokenType::Class => {
-                todo!("Class factor not implemented");
+                self.next_token();
+                
+                return Ok(Factor::ClassExpression(self.class_expression()?));
             }
             TokenType::Minus => {
                 self.next_token();
@@ -673,52 +675,65 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn table_factor(&mut self) -> Result<Factor, String> {
+    fn simple_table_entry(&mut self) -> Result<TableEntry, String> {
+        let key = Identifier::from(self.expect(TokenType::Identifier)?);
+        self.expect(TokenType::Assign)?;
+        let value = self.expression()?;
+
+        return Ok(TableEntry::Simple(key, value))
+    }
+
+    fn table_entry(&mut self, is_class: bool) -> Result<TableEntry, String> {
+        match self.current_token_type() {
+            TokenType::Function => {
+                self.next_token();
+                let key = Identifier::from(self.expect(TokenType::Identifier)?);
+                let params = self.function_params()?;
+                let body = self.statement()?;
+
+                return Ok(TableEntry::Function(key, params, body));
+            },
+            TokenType::Constructor => {
+                self.next_token();
+                let params = self.function_params()?;
+                let body = self.statement()?;
+
+                return Ok(TableEntry::Constructor(params, body));
+            },
+            TokenType::LeftSquare => {
+                self.next_token();
+                let key = self.comma_expression()?;
+                self.expect(TokenType::RightSquare)?;
+                self.expect(TokenType::Assign)?;
+                let value = self.expression()?;
+
+                return Ok(TableEntry::DynamicAssign(key, value));
+            },
+            TokenType::StringLiteral => {
+                if !is_class {
+                    let key = self.current_token().svalue.as_ref().unwrap().clone();
+                    self.next_token();
+                    self.expect(TokenType::Colon)?;
+                    let value = self.expression()?;
+
+                    return Ok(TableEntry::JsonStyle(key, value));
+                } else {
+                    return self.simple_table_entry();
+                }
+            },
+            _ => {
+                return self.simple_table_entry();
+            },
+        }
+    }
+
+    fn table(&mut self) -> Result<Table, String> {
         self.next_token();
 
         let mut entries = Vec::new();
 
         while self.current_token_type() != TokenType::RightCurly {
-            match self.current_token_type() {
-                TokenType::Function => {
-                    self.next_token();
-                    let key = Identifier::from(self.expect(TokenType::Identifier)?);
-                    let params = self.function_params()?;
-                    let body = self.statement()?;
-
-                    entries.push(TableEntry::Function(key, params, body));
-                },
-                TokenType::Constructor => {
-                    self.next_token();
-                    let params = self.function_params()?;
-                    let body = self.statement()?;
-
-                    entries.push(TableEntry::Constructor(params, body));
-                },
-                TokenType::LeftSquare => {
-                    self.next_token();
-                    let key = self.comma_expression()?;
-                    self.expect(TokenType::RightSquare)?;
-                    self.expect(TokenType::Assign)?;
-                    let value = self.expression()?;
-
-                    entries.push(TableEntry::DynamicAssign(key, value));
-                },
-                TokenType::StringLiteral => {
-                    let key = self.current_token().svalue.as_ref().unwrap().clone();
-                    self.expect(TokenType::Colon)?;
-                    let value = self.expression()?;
-
-                    entries.push(TableEntry::JsonStyle(key, value));
-                },
-                _ => {
-                    let key = Identifier::from(self.expect(TokenType::Identifier)?);
-                    self.expect(TokenType::Assign)?;
-                    let value = self.expression()?;
-
-                    entries.push(TableEntry::Simple(key, value))
-                },
-            }
+            entries.push(self.table_entry(false)?);
 
             if self.current_token_type() == TokenType::Comma {
                 self.next_token();
@@ -726,7 +741,7 @@ impl<'a> Parser<'a> {
         }
         self.next_token();
 
-        return Ok(Factor::TableInit(entries));
+        return Ok(Table { entries });
     }
 
     fn statements(&mut self) -> Result<Statements, String> {
@@ -835,20 +850,62 @@ impl<'a> Parser<'a> {
         return Ok(Factor::ArrayInit(expressions));
     }
 
-    fn class_expression(&mut self) -> Result<Factor, String> {
-        self.next_token();
+    fn class_expression(&mut self) -> Result<ClassExpression, String> {
+        let mut base_class = None;
+        let mut attributes = None;
 
         if self.current_token_type() == TokenType::Extends {
             self.next_token();
-            self.expression()?;
+            base_class = Some(self.expression()?);
         }
         if self.current_token_type() == TokenType::AttributeOpen {
-            self.next_token();
-            todo!("ParseTableOrClass");
+            attributes = Some(self.class_attributes()?);
         }
+        
+        let body = self.class_table()?;
+
+        return Ok(ClassExpression { base_class, attributes, body });
+    }
+
+    fn class_table(&mut self) -> Result<Table, String> {
         self.expect(TokenType::LeftCurly)?;
 
-        todo!("ParseTableOrClass");
+        let mut entries = Vec::new();
+
+        while self.current_token_type() != TokenType::RightCurly {
+            if self.current_token_type() == TokenType::AttributeOpen {
+                entries.push(TableEntry::Attributes(self.class_attributes()?));
+            }
+            if self.current_token_type() == TokenType::Static {
+                self.next_token();
+            }
+
+            entries.push(self.table_entry(true)?);
+
+            if self.current_token_type() == TokenType::Semicolon {
+                self.next_token();
+            }
+        }
+        self.next_token();
+
+        return Ok(Table { entries });
+    }
+
+    fn class_attributes(&mut self) -> Result<Table, String> {
+        self.next_token();
+
+        let mut entries = Vec::new();
+
+        while self.current_token_type() != TokenType::AttributeClose {
+            entries.push(self.table_entry(false)?);
+
+            if self.current_token_type() == TokenType::Comma {
+                self.next_token();
+            }
+        }
+        self.next_token();
+
+        return Ok(Table { entries });
     }
 
     fn logical_or_expression(&mut self) -> Result<LogicalOrExpression, String> {

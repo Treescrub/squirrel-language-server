@@ -21,7 +21,7 @@ pub enum Statement {
     Break,
     Continue,
     Function(FunctionIdentifier, Option<Expression>/* static env binding */, FunctionParams, Box<Statement>),
-    Class(PrefixedExpression, Factor/* class expr */),
+    Class(PrefixedExpression, ClassExpression),
     Enum(Identifier, EnumValues),
     StatementBlock(Statements),
     TryCatch(Box<Statement>, Identifier, Box<Statement>),
@@ -56,10 +56,10 @@ pub enum Factor {
     DoubleColon(Box<PrefixedExpression>),
     Null,
     ArrayInit(Vec<Expression>),
-    TableInit(Vec<TableEntry>),
+    TableInit(Table),
     FunctionExpression(Option<Expression> /* bind env */, FunctionParams, Box<Statement>),
     LambdaExpression(Option<Expression> /* bind env */, FunctionParams, Expression),
-    DeclareClass, // TODO: params
+    ClassExpression(ClassExpression),
     UnaryOp(Box<UnaryOp>),
     RawCall(FunctionCallArgs),
     Delete(Box<PrefixedExpression>),
@@ -68,12 +68,23 @@ pub enum Factor {
     FileInfo,
 }
 
+pub struct ClassExpression {
+    pub base_class: Option<Expression>,
+    pub attributes: Option<Table>,
+    pub body: Table,
+}
+
+pub struct Table {
+    pub entries: Vec<TableEntry>,
+}
+
 pub enum TableEntry {
     Function(Identifier, FunctionParams, Statement),
     Constructor(FunctionParams, Statement),
     DynamicAssign(CommaExpression, Expression),
     JsonStyle(String, Expression),
     Simple(Identifier, Expression),
+    Attributes(Table),
 }
 
 pub struct UnaryOp {
