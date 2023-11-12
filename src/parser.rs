@@ -588,7 +588,7 @@ impl<'a> Parser<'a> {
                 return Ok(self.array_init()?);
             }
             TokenType::LeftCurly => {
-                todo!("Table factor not implemented");
+                return self.table_factor();
             }
             TokenType::Function => {
                 return self.function_expression();
@@ -671,6 +671,62 @@ impl<'a> Parser<'a> {
                 return Err(self.build_error(format!("Unexpected token for factor: '{}'", unhandled_type)));
             }
         }
+    }
+
+    fn table_factor(&mut self) -> Result<Factor, String> {
+        self.next_token();
+
+        let mut entries = Vec::new();
+
+        while self.current_token_type() != TokenType::RightCurly {
+            match self.current_token_type() {
+                TokenType::Function => {
+                    self.next_token();
+                    let key = Identifier::from(self.expect(TokenType::Identifier)?);
+                    let params = self.function_params()?;
+                    let body = self.statement()?;
+
+                    entries.push(TableEntry::Function(key, params, body));
+                },
+                TokenType::Constructor => {
+                    self.next_token();
+                    let params = self.function_params()?;
+                    let body = self.statement()?;
+
+                    entries.push(TableEntry::Constructor(params, body));
+                },
+                TokenType::LeftSquare => {
+                    self.next_token();
+                    let key = self.comma_expression()?;
+                    self.expect(TokenType::RightSquare)?;
+                    self.expect(TokenType::Assign)?;
+                    let value = self.expression()?;
+
+                    entries.push(TableEntry::DynamicAssign(key, value));
+                },
+                TokenType::StringLiteral => {
+                    let key = self.current_token().svalue.as_ref().unwrap().clone();
+                    self.expect(TokenType::Colon)?;
+                    let value = self.expression()?;
+
+                    entries.push(TableEntry::JsonStyle(key, value));
+                },
+                _ => {
+                    let key = Identifier::from(self.expect(TokenType::Identifier)?);
+                    self.expect(TokenType::Assign)?;
+                    let value = self.expression()?;
+
+                    entries.push(TableEntry::Simple(key, value))
+                },
+            }
+
+            if self.current_token_type() == TokenType::Comma {
+                self.next_token();
+            }
+        }
+        self.next_token();
+
+        return Ok(Factor::TableInit(entries));
     }
 
     fn statements(&mut self) -> Result<Statements, String> {

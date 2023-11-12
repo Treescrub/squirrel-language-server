@@ -56,7 +56,7 @@ pub enum Factor {
     DoubleColon(Box<PrefixedExpression>),
     Null,
     ArrayInit(Vec<Expression>),
-    TableInit, // TODO: params
+    TableInit(Vec<TableEntry>),
     FunctionExpression(Option<Expression> /* bind env */, FunctionParams, Box<Statement>),
     LambdaExpression(Option<Expression> /* bind env */, FunctionParams, Expression),
     DeclareClass, // TODO: params
@@ -66,6 +66,14 @@ pub enum Factor {
     ParenExpression(CommaExpression),
     LineInfo,
     FileInfo,
+}
+
+pub enum TableEntry {
+    Function(Identifier, FunctionParams, Statement),
+    Constructor(FunctionParams, Statement),
+    DynamicAssign(CommaExpression, Expression),
+    JsonStyle(String, Expression),
+    Simple(Identifier, Expression),
 }
 
 pub struct UnaryOp {
