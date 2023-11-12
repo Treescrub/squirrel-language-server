@@ -594,7 +594,7 @@ impl<'a> Parser<'a> {
                 return self.function_expression();
             }
             TokenType::At => {
-                todo!("Lambda function factor not implemented");
+                return self.lambda_expression();
             }
             TokenType::Class => {
                 todo!("Class factor not implemented");
@@ -744,6 +744,23 @@ impl<'a> Parser<'a> {
         let body = self.statement()?;
 
         return Ok(Factor::FunctionExpression(bind_env, params, Box::new(body)))
+    }
+
+    fn lambda_expression(&mut self) -> Result<Factor, String> {
+        self.next_token();
+
+        let mut bind_env = None;
+
+        if self.current_token_type() == TokenType::LeftSquare {
+            self.next_token();
+            bind_env = Some(self.expression()?);
+            self.expect(TokenType::RightSquare)?;
+        }
+
+        let params = self.function_params()?;
+        let body = self.expression()?;
+
+        return Ok(Factor::LambdaExpression(bind_env, params, body))
     }
 
     fn array_init(&mut self) -> Result<Factor, String> {

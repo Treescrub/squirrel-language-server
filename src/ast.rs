@@ -58,6 +58,7 @@ pub enum Factor {
     ArrayInit(Vec<Expression>),
     TableInit, // TODO: params
     FunctionExpression(Option<Expression> /* bind env */, FunctionParams, Box<Statement>),
+    LambdaExpression(Option<Expression> /* bind env */, FunctionParams, Expression),
     DeclareClass, // TODO: params
     UnaryOp(Box<UnaryOp>),
     RawCall(FunctionCallArgs),
