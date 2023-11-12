@@ -31,6 +31,53 @@ pub trait SimpleVisitor {
             _ => {todo!()}
         }
     }
+    fn visit_func_params(&self, params: FunctionParams) {
+        for param in params.params {
+            self.visit_func_param(param);
+        }
+    }
+    fn visit_func_param(&self, param: FunctionParam) {
+        match param {
+            FunctionParam::Normal(identifier) => self.visit_identifier(identifier),
+            FunctionParam::Default(identifier, default_val) => {
+                self.visit_identifier(identifier);
+                self.visit_expression(default_val);
+            },
+            FunctionParam::VarParams => {},
+        }
+    }
+    fn visit_table(&self, table: Table) {
+        for entry in table.entries {
+            self.visit_table_entry(entry);
+        }
+    }
+    fn visit_table_entry(&self, entry: TableEntry) {
+        match entry {
+            TableEntry::Function(name, params, body) => {
+                self.visit_identifier(name);
+                self.visit_func_params(params);
+                self.visit_statement(body);
+            },
+            TableEntry::Constructor(params, body) => {
+                self.visit_func_params(params);
+                self.visit_statement(body);
+            },
+            TableEntry::DynamicAssign(key, value) => {
+                self.visit_comma_expr(key);
+                self.visit_expression(value);
+            },
+            TableEntry::JsonStyle(_key, value) => {
+                self.visit_expression(value);
+            },
+            TableEntry::Simple(key, value) => {
+                self.visit_identifier(key);
+                self.visit_expression(value);
+            },
+            TableEntry::Attributes(table) => {
+                self.visit_table(table);
+            },
+        }
+    }
     fn visit_expression(&self, expression: Expression) {
         self.visit_logical_or_exp(*expression.logical_or);
 
@@ -50,6 +97,17 @@ pub trait SimpleVisitor {
                 self.visit_expression(*false_case);
             },
         }
+    }
+    fn visit_class_expr(&self, class_expression: ClassExpression) {
+        if let Some(base_class) = class_expression.base_class {
+            self.visit_expression(base_class);
+        }
+
+        if let Some(attributes) = class_expression.attributes {
+            self.visit_table(attributes);
+        }
+
+        self.visit_table(class_expression.body);
     }
     fn visit_comma_expr(&self, comma_expression: CommaExpression) {
         for expression in comma_expression.expressions {
@@ -139,8 +197,8 @@ pub trait SimpleVisitor {
             }
         }
     }
-    fn visit_factor(&self, factor: Factor) {}
-    fn visit_identifier(&self, identifier: Identifier) {}
+    fn visit_factor(&self, _factor: Factor) {}
+    fn visit_identifier(&self, _identifier: Identifier) {}
 }
 
 pub trait SimpleVisitorMut {
@@ -174,6 +232,53 @@ pub trait SimpleVisitorMut {
             _ => {todo!()}
         }
     }
+    fn visit_func_params(&mut self, params: FunctionParams) {
+        for param in params.params {
+            self.visit_func_param(param);
+        }
+    }
+    fn visit_func_param(&mut self, param: FunctionParam) {
+        match param {
+            FunctionParam::Normal(identifier) => self.visit_identifier(identifier),
+            FunctionParam::Default(identifier, default_val) => {
+                self.visit_identifier(identifier);
+                self.visit_expression(default_val);
+            },
+            FunctionParam::VarParams => {},
+        }
+    }
+    fn visit_table(&mut self, table: Table) {
+        for entry in table.entries {
+            self.visit_table_entry(entry);
+        }
+    }
+    fn visit_table_entry(&mut self, entry: TableEntry) {
+        match entry {
+            TableEntry::Function(name, params, body) => {
+                self.visit_identifier(name);
+                self.visit_func_params(params);
+                self.visit_statement(body);
+            },
+            TableEntry::Constructor(params, body) => {
+                self.visit_func_params(params);
+                self.visit_statement(body);
+            },
+            TableEntry::DynamicAssign(key, value) => {
+                self.visit_comma_expr(key);
+                self.visit_expression(value);
+            },
+            TableEntry::JsonStyle(_key, value) => {
+                self.visit_expression(value);
+            },
+            TableEntry::Simple(key, value) => {
+                self.visit_identifier(key);
+                self.visit_expression(value);
+            },
+            TableEntry::Attributes(table) => {
+                self.visit_table(table);
+            },
+        }
+    }
     fn visit_expression(&mut self, expression: Expression) {
         self.visit_logical_or_exp(*expression.logical_or);
 
@@ -193,6 +298,17 @@ pub trait SimpleVisitorMut {
                 self.visit_expression(*false_case);
             },
         }
+    }
+    fn visit_class_expr(&mut self, class_expression: ClassExpression) {
+        if let Some(base_class) = class_expression.base_class {
+            self.visit_expression(base_class);
+        }
+
+        if let Some(attributes) = class_expression.attributes {
+            self.visit_table(attributes);
+        }
+
+        self.visit_table(class_expression.body);
     }
     fn visit_comma_expr(&mut self, comma_expression: CommaExpression) {
         for expression in comma_expression.expressions {
@@ -282,8 +398,8 @@ pub trait SimpleVisitorMut {
             }
         }
     }
-    fn visit_factor(&mut self, factor: Factor) {}
-    fn visit_identifier(&mut self, identifier: Identifier) {}
+    fn visit_factor(&mut self, _factor: Factor) {}
+    fn visit_identifier(&mut self, _identifier: Identifier) {}
 }
 
 pub struct PrettyPrinter {
@@ -354,9 +470,10 @@ impl SimpleVisitorMut for PrettyPrinter {
                 self.print("CONTINUE");
                 self.pop_level();
             }
-            Statement::Const(id, scalar) => {
+            Statement::Const(id, _scalar) => {
                 self.push_level();
                 self.print("CONST");
+                self.visit_identifier(id);
                 self.pop_level();
             }
             Statement::StatementBlock(statements) => self.visit_statements(statements),
@@ -376,6 +493,13 @@ impl SimpleVisitorMut for PrettyPrinter {
                 for expression in comma_expression.expressions {
                     self.visit_expression(expression);
                 }
+                self.pop_level();
+            }
+            Statement::Class(name, body) => {
+                self.push_level();
+                self.print("CLASS");
+                self.visit_prefixed_exp(name);
+                self.visit_class_expr(body);
                 self.pop_level();
             }
             _ => {
