@@ -31,6 +31,41 @@ pub trait SimpleVisitor {
             _ => {todo!()}
         }
     }
+    fn visit_local_declare(&self, local_declare: LocalDeclare) {
+        match local_declare {
+            LocalDeclare::Function(identifier, bind_env, params) => {
+                self.visit_identifier(identifier);
+                if let Some(bind_env) = bind_env {
+                    self.visit_expression(bind_env);
+                }
+                self.visit_func_params(params);
+            }
+            LocalDeclare::Assign(assign_exprs) => {
+                for assign_expr in assign_exprs {
+                    self.visit_assign_expr(assign_expr);
+                }
+            }
+        }
+    }
+    fn visit_assign_expr(&self, assign_expr: AssignExpression) {
+        self.visit_identifier(assign_expr.identifier);
+        if let Some(expression) = assign_expr.value {
+            self.visit_expression(expression);
+        }
+    }
+    fn visit_for_init(&self, for_init: ForInit) {
+        match for_init {
+            ForInit::LocalDeclare(local_declare) => {
+                self.visit_local_declare(local_declare);
+            }
+            ForInit::CommaExpression(comma_expr) => {
+                self.visit_comma_expr(comma_expr);
+            }
+        }
+    }
+    fn visit_unary_op(&self, unary_op: UnaryOp) {
+        self.visit_prefixed_exp(unary_op.expression);
+    }
     fn visit_func_params(&self, params: FunctionParams) {
         for param in params.params {
             self.visit_func_param(param);
@@ -197,6 +232,7 @@ pub trait SimpleVisitor {
             }
         }
     }
+    fn visit_scalar(&self, _scalar: Scalar) {}
     fn visit_factor(&self, _factor: Factor) {}
     fn visit_identifier(&self, _identifier: Identifier) {}
 }
@@ -231,6 +267,41 @@ pub trait SimpleVisitorMut {
             }
             _ => {todo!()}
         }
+    }
+    fn visit_local_declare(&mut self, local_declare: LocalDeclare) {
+        match local_declare {
+            LocalDeclare::Function(identifier, bind_env, params) => {
+                self.visit_identifier(identifier);
+                if let Some(bind_env) = bind_env {
+                    self.visit_expression(bind_env);
+                }
+                self.visit_func_params(params);
+            }
+            LocalDeclare::Assign(assign_exprs) => {
+                for assign_expr in assign_exprs {
+                    self.visit_assign_expr(assign_expr);
+                }
+            }
+        }
+    }
+    fn visit_assign_expr(&mut self, assign_expr: AssignExpression) {
+        self.visit_identifier(assign_expr.identifier);
+        if let Some(expression) = assign_expr.value {
+            self.visit_expression(expression);
+        }
+    }
+    fn visit_for_init(&mut self, for_init: ForInit) {
+        match for_init {
+            ForInit::LocalDeclare(local_declare) => {
+                self.visit_local_declare(local_declare);
+            }
+            ForInit::CommaExpression(comma_expr) => {
+                self.visit_comma_expr(comma_expr);
+            }
+        }
+    }
+    fn visit_unary_op(&mut self, unary_op: UnaryOp) {
+        self.visit_prefixed_exp(unary_op.expression);
     }
     fn visit_func_params(&mut self, params: FunctionParams) {
         for param in params.params {
@@ -398,6 +469,7 @@ pub trait SimpleVisitorMut {
             }
         }
     }
+    fn visit_scalar(&mut self, _scalar: Scalar) {}
     fn visit_factor(&mut self, _factor: Factor) {}
     fn visit_identifier(&mut self, _identifier: Identifier) {}
 }
@@ -502,13 +574,173 @@ impl SimpleVisitorMut for PrettyPrinter {
                 self.visit_class_expr(body);
                 self.pop_level();
             }
-            _ => {
+            Statement::Function(identifier, bind_env, params, body) => {
                 self.push_level();
-                self.print("unknown statement");
+                self.print("FUNCTION");
+                for identifier in identifier.identifiers {
+                    self.visit_identifier(identifier);
+                }
+                if let Some(bind_env) = bind_env {
+                    self.visit_expression(bind_env);
+                }
+                self.visit_func_params(params);
+                self.visit_statement(*body);
+                self.pop_level();
+            }
+            Statement::While(condition, body) => {
+                self.push_level();
+                self.print("WHILE");
+                self.visit_comma_expr(condition);
+                self.visit_statement(*body);
+                self.pop_level();
+            },
+            Statement::DoWhile(body, condition) => {
+                self.push_level();
+                self.print("DO WHILE");
+                self.visit_statement(*body);
+                self.visit_comma_expr(condition);
+                self.pop_level();
+            },
+            Statement::For(init, condition, post, body) => {
+                self.push_level();
+                self.print("FOR");
+                if let Some(init) = init {
+                    self.visit_for_init(init);
+                }
+                if let Some(condition) = condition {
+                    self.visit_comma_expr(condition);
+                }
+                if let Some(post) = post {
+                    self.visit_comma_expr(post);
+                }
+                self.visit_statement(*body);
+            },
+            Statement::ForEach(value, key, container, body) => {
+                self.push_level();
+                self.print("FOR EACH");
+                self.visit_identifier(value);
+                if let Some(key) = key {
+                    self.visit_identifier(key);
+                }
+                self.visit_expression(container);
+                self.visit_statement(*body);
+                self.pop_level();
+            },
+            Statement::Switch(value, cases) => {
+                self.push_level();
+                self.print("SWITCH");
+                self.visit_comma_expr(value);
+                for case in cases {
+                    self.visit_expression(case.condition);
+                    self.visit_statements(case.body);
+                }
+                self.pop_level();
+            },
+            Statement::LocalDeclare(local_declare) => {
+                self.push_level();
+                self.print("LOCAL DECLARE");
+                self.visit_local_declare(local_declare);
+                self.pop_level();
+            },
+            Statement::Return(value) => {
+                self.push_level();
+                self.print("RETURN");
+                if let Some(value) = value {
+                    self.visit_comma_expr(value);
+                }
+                self.pop_level();
+            },
+            Statement::Yield(value) => {
+                self.push_level();
+                self.print("YIELD");
+                if let Some(value) = value {
+                    self.visit_comma_expr(value);
+                }
+                self.pop_level();
+            },
+            Statement::Enum(identifier, values) => {
+                self.push_level();
+                self.print("ENUM");
+                self.visit_identifier(identifier);
+                for entry in values.values {
+                    self.visit_identifier(entry.key);
+                    if let Some(value) = entry.value {
+                        self.visit_scalar(value);
+                    }
+                }
+                self.pop_level();
+            },
+            Statement::TryCatch(try_body, exception_id, catch_body) => {
+                self.push_level();
+                self.print("TRY CATCH");
+                self.visit_statement(*try_body);
+                self.visit_identifier(exception_id);
+                self.visit_statement(*catch_body);
+                self.pop_level();
+            },
+            Statement::Throw(value) => {
+                self.push_level();
+                self.print("THROW");
+                self.visit_comma_expr(value);
                 self.pop_level();
             },
         }
 
+        self.pop_level();
+    }
+
+    fn visit_local_declare(&mut self, local_declare: LocalDeclare) {
+        match local_declare {
+            LocalDeclare::Function(identifier, bind_env, params) => {
+                self.push_level();
+                self.print("FUNCTION");
+                self.visit_identifier(identifier);
+                if let Some(bind_env) = bind_env {
+                    self.visit_expression(bind_env);
+                }
+                self.visit_func_params(params);
+                self.pop_level();
+            }
+            LocalDeclare::Assign(assign_exprs) => {
+                self.push_level();
+                self.print("ASSIGN");
+                for assign_expr in assign_exprs {
+                    self.visit_assign_expr(assign_expr);
+                }
+                self.pop_level();
+            }
+        }
+    }
+
+    fn visit_assign_expr(&mut self, assign_expr: AssignExpression) {
+        self.push_level();
+        self.print("ASSIGN EXPRESSION");
+        self.visit_identifier(assign_expr.identifier);
+        if let Some(expression) = assign_expr.value {
+            self.visit_expression(expression);
+        }
+        self.pop_level();
+    }
+
+    fn visit_for_init(&mut self, for_init: ForInit) {
+        self.push_level();
+        match for_init {
+            ForInit::LocalDeclare(local_declare) => {
+                self.print("LOCAL DECLARE");
+                self.visit_local_declare(local_declare);
+            }
+            ForInit::CommaExpression(comma_expr) => {
+                self.print("COMMA EXPRESSION");
+                self.visit_comma_expr(comma_expr);
+            }
+        }
+        self.pop_level();
+    }
+
+    fn visit_unary_op(&mut self, unary_op: UnaryOp) {
+        self.push_level();
+        self.print("UNARY OP");
+        self.visit_prefixed_exp(unary_op.expression);
         self.pop_level();
     }
 
@@ -636,6 +868,86 @@ impl SimpleVisitorMut for PrettyPrinter {
     fn visit_factor(&mut self, factor: Factor) {
         self.push_level();
         self.print("FACTOR");
+        match factor {
+            Factor::Scalar(scalar) => {
+                self.push_level();
+                self.print("SCALAR");
+                self.visit_scalar(scalar);
+                self.pop_level();
+            },
+            Factor::Base => self.print("BASE"),
+            Factor::Identifier(identifier) => {
+                self.push_level();
+                self.visit_identifier(identifier);
+                self.pop_level();
+            },
+            Factor::Constructor => self.print("CONSTRUCTOR"),
+            Factor::This => self.print("THIS"),
+            Factor::DoubleColon(prefixed_expression) => {
+                self.push_level();
+                self.print("DOUBLE_COLON");
+                self.visit_prefixed_exp(*prefixed_expression);
+                self.pop_level();
+            },
+            Factor::Null => self.print("NULL"),
+            Factor::ArrayInit(entries) => {
+                self.push_level();
+                self.print("ARRAY");
+                for entry in entries {
+                    self.visit_expression(entry);
+                }
+                self.pop_level();
+            },
+            Factor::TableInit(table) => {
+                self.push_level();
+                self.print("TABLE");
+                self.visit_table(table);
+                self.pop_level();
+            },
+            Factor::FunctionExpression(bind_env, params, body) => {
+                self.push_level();
+                self.print("FUNCTION");
+                if let Some(bind_env) = bind_env {
+                    self.visit_expression(bind_env);
+                }
+
+                self.visit_func_params(params);
+                self.visit_statement(*body);
+                self.pop_level();
+            },
+            Factor::LambdaExpression(bind_env, params, body) => {
+                self.push_level();
+                self.print("LAMBDA EXPRESSION");
+                if let Some(bind_env) = bind_env {
+                    self.visit_expression(bind_env);
+                }
+                self.visit_func_params(params);
+                self.visit_expression(body);
+                self.pop_level();
+            },
+            Factor::ClassExpression(class_expression) => {
+                self.push_level();
+                self.print("CLASS EXPRESSION");
+                self.visit_class_expr(class_expression);
+                self.pop_level();
+            },
+            Factor::UnaryOp(unary_op) => {
+                self.push_level();
+                self.print("UNARY OP");
+                self.visit_unary_op(*unary_op);
+                self.pop_level();
+            },
+            Factor::RawCall(_) => todo!(),
+            Factor::Delete(_) => todo!(),
+            Factor::ParenExpression(expression) => {
+                self.push_level();
+                self.print("PAREN EXPRESSION");
+                self.visit_comma_expr(expression);
+                self.pop_level();
+            },
+            Factor::LineInfo => todo!(),
+            Factor::FileInfo => todo!(),
+        }
         self.pop_level();
     }
 
@@ -644,15 +956,20 @@ impl SimpleVisitorMut for PrettyPrinter {
         self.print("EXPRESSION");
         self.visit_logical_or_exp(*expression.logical_or);
 
-        if expression.expr_type.is_some() {
-            match expression.expr_type.unwrap() {
+        if let Some(expr_type) = expression.expr_type {
+            match expr_type {
                 ExpressionType::Newslot(expression) => {
                     self.push_level();
                     self.print("NEWSLOT");
                     self.visit_expression(*expression);
                     self.pop_level();
                 },
-                ExpressionType::Assign(_) => todo!(),
+                ExpressionType::Assign(expression) => {
+                    self.push_level();
+                    self.print("ASSIGN");
+                    self.visit_expression(*expression);
+                    self.pop_level();
+                },
                 ExpressionType::MinusEqual(_) => todo!(),
                 ExpressionType::PlusEqual(_) => todo!(),
                 ExpressionType::MultiplyEqual(_) => todo!(),
@@ -667,5 +984,21 @@ impl SimpleVisitorMut for PrettyPrinter {
             }
         }
         self.pop_level();
+    }
+
+    fn visit_scalar(&mut self, scalar: Scalar) {
+        self.push_level();
+        match scalar {
+            Scalar::Integer => self.print("INTEGER"),
+            Scalar::Float => self.print("FLOAT"),
+            Scalar::StringLiteral => self.print("STRING"),
+            Scalar::True => self.print("TRUE"),
+            Scalar::False => self.print("FALSE"),
+        }
+        self.pop_level();
+    }
+
+    fn visit_identifier(&mut self, _identifier: Identifier) {
+        self.print("IDENTIFIER");
     }
 }
