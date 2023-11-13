@@ -13,7 +13,7 @@ pub enum Statement {
     While(CommaExpression, Box<Statement>),
     DoWhile(Box<Statement>, CommaExpression),
     For(Option<ForInit>, Option<CommaExpression>, Option<CommaExpression>, Box<Statement>),
-    ForEach(Identifier, Option<Identifier>, Expression, Box<Statement>),
+    ForEach(Identifier /* value */, Option<Identifier> /* key */, Expression, Box<Statement>),
     Switch(CommaExpression, Vec<SwitchCase>),
     LocalDeclare(LocalDeclare),
     Return(Option<CommaExpression>),
