@@ -53,13 +53,6 @@ impl<'a> Parser<'a> {
         return self.current_token().token_type;
     }
 
-    fn current_token_and_advance(&mut self) -> &Token {
-        let current = self.current_token();
-        self.next_token();
-
-        return current;
-    }
-    
     fn expect(&mut self, token_type: TokenType) -> Result<&Token, String> {
         if self.current_token_type() != token_type {
             return Err(format!("Expected token `{}`, got `{}`", token_type, self.current_token_type()));
@@ -114,9 +107,7 @@ impl<'a> Parser<'a> {
     }
 
     fn statement(&mut self) -> Result<Statement, String> {
-        let token_type = self.current_token_type();
-
-        match token_type {
+        match self.current_token_type() {
             TokenType::If => {
                 return self.if_statement();
             }
@@ -264,13 +255,13 @@ impl<'a> Parser<'a> {
     fn for_each_statement(&mut self) -> Result<Statement, String> {
         self.next_token();
         self.expect(TokenType::LeftParen)?;
-        let mut value_identifier = Identifier { value: self.expect(TokenType::Identifier)?.svalue.as_ref().unwrap().clone() };
+        let mut value_identifier = Identifier::from(self.expect(TokenType::Identifier)?);
         let mut key_identifier = None;
 
         if self.current_token_type() == TokenType::Comma {
             self.next_token();
             key_identifier = Some(value_identifier);
-            value_identifier = Identifier { value: self.expect(TokenType::Identifier)?.svalue.as_ref().unwrap().clone() };
+            value_identifier = Identifier::from(self.expect(TokenType::Identifier)?);
         }
 
         self.expect(TokenType::In)?;
@@ -387,7 +378,7 @@ impl<'a> Parser<'a> {
         let try_body = self.statement()?;
         self.expect(TokenType::Catch)?;
         self.expect(TokenType::LeftParen)?;
-        let identifier = Identifier { value: self.expect(TokenType::Identifier)?.svalue.as_ref().unwrap().clone() };
+        let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
         self.expect(TokenType::RightParen)?;
         let catch_body = self.statement()?;
 
@@ -479,12 +470,12 @@ impl<'a> Parser<'a> {
 
     fn const_statement(&mut self) -> Result<Statement, String> {
         self.next_token();
-        let id = self.expect(TokenType::Identifier)?.svalue.as_ref().unwrap().clone();
+        let id = Identifier::from(self.expect(TokenType::Identifier)?);
         self.expect(TokenType::Assign)?;
         let scalar = self.scalar()?;
         self.optional_semicolon()?;
 
-        return Ok(Statement::Const(Identifier {value: id}, scalar));
+        return Ok(Statement::Const(id, scalar));
     }
 
     fn scalar(&mut self) -> Result<Scalar, String> {
@@ -1129,11 +1120,11 @@ impl<'a> Parser<'a> {
 
                     entries.push(PostCallInitializeEntry::ArrayStyle(comma_expression, expression));
                 } else {
-                    let identifier = self.expect(TokenType::Identifier)?.svalue.as_ref().unwrap().clone();
+                    let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
                     self.expect(TokenType::Assign)?;
                     let expression = self.expression()?;
 
-                    entries.push(PostCallInitializeEntry::TableStyle(Identifier { value: identifier }, expression))
+                    entries.push(PostCallInitializeEntry::TableStyle(identifier, expression))
                 }
 
                 if self.current_token_type() == TokenType::Comma {
