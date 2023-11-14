@@ -299,15 +299,16 @@ impl<'a> Parser<'a> {
             switch_cases.push(SwitchCase { condition: expression, body: statements });
         }
 
+        let mut default = None;
         if self.current_token_type() == TokenType::Default {
             self.next_token();
             self.expect(TokenType::Colon)?;
-            let statements = self.statements()?;
+            default = Some(self.statements()?);
         }
 
         self.expect(TokenType::RightCurly)?;
  
-        return Ok(Statement::Switch(value, switch_cases));
+        return Ok(Statement::Switch(value, switch_cases, default));
     }
 
     fn function_statement(&mut self) -> Result<Statement, String> {

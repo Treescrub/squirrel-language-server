@@ -14,7 +14,7 @@ pub enum Statement {
     DoWhile(Box<Statement>, CommaExpression),
     For(Option<ForInit>, Option<CommaExpression>, Option<CommaExpression>, Box<Statement>),
     ForEach(Identifier /* value */, Option<Identifier> /* key */, Expression, Box<Statement>),
-    Switch(CommaExpression, Vec<SwitchCase>),
+    Switch(CommaExpression, Vec<SwitchCase>, Option<Statements> /* default */),
     LocalDeclare(LocalDeclare),
     Return(Option<CommaExpression>),
     Yield(Option<CommaExpression>),
