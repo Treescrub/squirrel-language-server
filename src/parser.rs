@@ -15,10 +15,18 @@ impl<'a> Parser<'a> {
     }
     
     pub fn parse(&mut self) -> Result<Script, String> {
+        self.ignore_newlines();
+
         // hacky way to prevent stack overflow :/
         return stacker::grow(100 * 1024 * 1024, || {
             return Ok(self.script()?);
         });
+    }
+
+    fn ignore_newlines(&mut self) {
+        while self.current_token_type() == TokenType::NewLine {
+            self.next_token();
+        }
     }
 
     fn next_token(&mut self) -> &Token {
