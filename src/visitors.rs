@@ -626,13 +626,16 @@ impl SimpleVisitorMut for PrettyPrinter {
                 self.visit_statement(*body);
                 self.pop_level();
             },
-            Statement::Switch(value, cases) => {
+            Statement::Switch(value, cases, default) => {
                 self.push_level();
                 self.print("SWITCH");
                 self.visit_comma_expr(value);
                 for case in cases {
                     self.visit_expression(case.condition);
                     self.visit_statements(case.body);
+                }
+                if let Some(default) = default {
+                    self.visit_statements(default);
                 }
                 self.pop_level();
             },
