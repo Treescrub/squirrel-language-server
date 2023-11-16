@@ -266,6 +266,7 @@ impl<'a> Parser<'a> {
 
         self.expect(TokenType::In)?;
         let expression = self.expression()?;
+        self.expect(TokenType::RightParen)?;
         let statement = Box::new(self.statement()?);
 
         return Ok(Statement::ForEach(value_identifier, key_identifier, expression, statement));
