@@ -74,7 +74,7 @@ impl<'a> Parser<'a> {
     }
 
     fn build_error(&self, mut message: String) -> String {
-        message.push_str(&format!(" (on line {}, col {})", self.current_token().range.start.line, self.current_token().range.start.column));
+        message.push_str(&format!(" (on line {}, col {}, token {})", self.current_token().range.start.line, self.current_token().range.start.column, self.token_index));
 
         return message;
     }
@@ -187,7 +187,7 @@ impl<'a> Parser<'a> {
         let comma_expression = self.comma_expression()?;
         self.expect(TokenType::RightParen)?;
 
-        let if_block = self.statement()?;
+        let if_block = Box::new(self.statement()?);
         let mut else_block = None;
 
         if self.current_token_type() == TokenType::Else {
@@ -195,7 +195,7 @@ impl<'a> Parser<'a> {
             else_block = Some(Box::new(self.statement()?));
         }
 
-        return Ok(Statement::If(comma_expression, Box::new(if_block), else_block));
+        return Ok(Statement::If(comma_expression, if_block, else_block));
     }
 
     fn while_statement(&mut self) -> Result<Statement, String> {
@@ -266,9 +266,9 @@ impl<'a> Parser<'a> {
 
         self.expect(TokenType::In)?;
         let expression = self.expression()?;
-        let statement = self.statement()?;
+        let statement = Box::new(self.statement()?);
 
-        return Ok(Statement::ForEach(value_identifier, key_identifier, expression, Box::new(statement)));
+        return Ok(Statement::ForEach(value_identifier, key_identifier, expression, statement));
     }
 
     fn switch_statement(&mut self) -> Result<Statement, String> {
@@ -325,9 +325,9 @@ impl<'a> Parser<'a> {
 
         let function_identifier = FunctionIdentifier { identifiers };
         let params = self.function_params()?;
-        let body = self.statement()?;
+        let body = Box::new(self.statement()?);
 
-        return Ok(Statement::Function(function_identifier, bind_env, params, Box::new(body)));
+        return Ok(Statement::Function(function_identifier, bind_env, params, body));
     }
 
     fn class_statement(&mut self) -> Result<Statement, String> {
@@ -375,14 +375,14 @@ impl<'a> Parser<'a> {
 
     fn try_statement(&mut self) -> Result<Statement, String> {
         self.next_token();
-        let try_body = self.statement()?;
+        let try_body = Box::new(self.statement()?);
         self.expect(TokenType::Catch)?;
         self.expect(TokenType::LeftParen)?;
         let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
         self.expect(TokenType::RightParen)?;
-        let catch_body = self.statement()?;
+        let catch_body = Box::new(self.statement()?);
 
-        return Ok(Statement::TryCatch(Box::new(try_body), identifier, Box::new(catch_body)));
+        return Ok(Statement::TryCatch(try_body, identifier, catch_body));
     }
 
     fn function_params(&mut self) -> Result<FunctionParams, String> {
@@ -523,10 +523,7 @@ impl<'a> Parser<'a> {
     }
 
     fn factor(&mut self) -> Result<Factor, String> {
-        let token_type = self.current_token_type();
-        let token = self.current_token();
-
-        match token_type {
+        match self.current_token_type() {
             TokenType::StringLiteral => {
                 self.next_token();
 
@@ -538,9 +535,10 @@ impl<'a> Parser<'a> {
                 return Ok(Factor::Base);
             }
             TokenType::Identifier => {
+                let identifier = Identifier::from(self.current_token());
                 self.next_token();
 
-                return Ok(Factor::Identifier(Identifier::from(token)));
+                return Ok(Factor::Identifier(identifier));
             }
             TokenType::Constructor => {
                 self.next_token();
@@ -620,31 +618,14 @@ impl<'a> Parser<'a> {
                     }
                 }
             }
-            TokenType::LogicalNot => {
-                return Ok(Factor::UnaryOp(Box::new(self.unary_op()?)));
-            }
-            TokenType::BitwiseNot => {
-                return Ok(Factor::UnaryOp(Box::new(self.unary_op()?)));
-            }
-            TokenType::Typeof => {
-                return Ok(Factor::UnaryOp(Box::new(self.unary_op()?)));
-            }
-            TokenType::Resume => {
-                return Ok(Factor::UnaryOp(Box::new(self.unary_op()?)));
-            }
-            TokenType::Clone => {
+            TokenType::LogicalNot | TokenType::BitwiseNot | TokenType::Typeof | TokenType::Resume | TokenType::Clone
+                | TokenType::MinusMinus | TokenType::PlusPlus => {
                 return Ok(Factor::UnaryOp(Box::new(self.unary_op()?)));
             }
             TokenType::Rawcall => {
                 self.next_token();
 
                 return Ok(Factor::RawCall(self.function_call_args()?));
-            }
-            TokenType::MinusMinus => {
-                return Ok(Factor::UnaryOp(Box::new(self.unary_op()?)));
-            }
-            TokenType::PlusPlus => {
-                return Ok(Factor::UnaryOp(Box::new(self.unary_op()?)));
             }
             TokenType::Delete => {
                 self.next_token();
@@ -788,11 +769,11 @@ impl<'a> Parser<'a> {
             }
             TokenType::Ternary => {
                 self.next_token();
-                let true_case = self.expression()?;
+                let true_case = Box::new(self.expression()?);
                 self.expect(TokenType::Colon)?;
-                let false_case = self.expression()?;
+                let false_case = Box::new(self.expression()?);
 
-                expr_type = Some(ExpressionType::Ternary(Box::new(true_case), Box::new(false_case)));
+                expr_type = Some(ExpressionType::Ternary(true_case, false_case));
             }
             _ => {}
         }
