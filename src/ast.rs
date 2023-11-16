@@ -159,64 +159,73 @@ pub enum ExpressionType {
     Ternary(Box<Expression>, Box<Expression>),
 }
 
+pub struct BinaryOpSlice<T> {
+    pub operator: TokenType,
+    pub right: T,
+}
+
+impl<T> BinaryOpSlice<T> {
+    pub fn new(operator: TokenType, right: T) -> BinaryOpSlice<T> {
+        return BinaryOpSlice {
+            operator,
+            right,
+        }
+    }
+}
+
 pub struct LogicalOrExpression {
     pub left: LogicalAndExpression,
-    pub right: Option<Box<LogicalOrExpression>>,
+    pub right: Vec<Box<LogicalOrExpression>>,
 }
 
 pub struct LogicalAndExpression {
     pub left: BitwiseOrExpression,
-    pub right: Option<Box<LogicalAndExpression>>,
+    pub right: Vec<Box<LogicalAndExpression>>,
 }
 
 pub struct BitwiseOrExpression {
     pub left: BitwiseXorExpression,
-    pub right: Option<BitwiseXorExpression>,
+    pub right: Vec<BitwiseXorExpression>,
 }
 
 pub struct BitwiseXorExpression {
     pub left: BitwiseAndExpression,
-    pub right: Option<BitwiseAndExpression>,
+    pub right: Vec<BitwiseAndExpression>,
 }
 
 pub struct BitwiseAndExpression {
     pub left: EqualExpression,
-    pub right: Option<EqualExpression>,
+    pub right: Vec<EqualExpression>,
 }
 
 pub struct EqualExpression {
     pub left: CompareExpression,
-    pub operator: Option<TokenType>,
-    pub right: Option<CompareExpression>,
+    pub slices: Vec<BinaryOpSlice<CompareExpression>>,
 }
 
 pub struct CompareExpression {
     pub left: ShiftExpression,
-    pub operator: Option<TokenType>,
-    pub right: Option<ShiftExpression>,
+    pub slices: Vec<BinaryOpSlice<ShiftExpression>>,
 }
 
 pub struct ShiftExpression {
     pub left: PlusExpression,
-    pub operator: Option<TokenType>,
-    pub right: Option<PlusExpression>,
+    pub slices: Vec<BinaryOpSlice<PlusExpression>>,
 }
 
 pub struct PlusExpression {
     pub left: MultiplyExpression,
-    pub operator: Option<TokenType>,
-    pub right: Option<MultiplyExpression>,
+    pub slices: Vec<BinaryOpSlice<MultiplyExpression>>,
 }
 
 pub struct MultiplyExpression {
     pub left: PrefixedExpression,
-    pub operator: Option<TokenType>,
-    pub right: Option<PrefixedExpression>,
+    pub slices: Vec<BinaryOpSlice<PrefixedExpression>>,
 }
 
 pub struct PrefixedExpression {
     pub factor: Factor,
-    pub expr_type: Option<PrefixedExpressionType>,
+    pub expr_types: Vec<PrefixedExpressionType>,
 }
 
 pub enum PrefixedExpressionType {

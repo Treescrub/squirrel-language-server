@@ -152,78 +152,78 @@ pub trait SimpleVisitor {
     fn visit_logical_or_exp(&self, logical_or: LogicalOrExpression) {
         self.visit_logical_and_exp(logical_or.left);
 
-        if logical_or.right.is_some() {
-            self.visit_logical_or_exp(*logical_or.right.unwrap());
+        for expression in logical_or.right {
+            self.visit_logical_or_exp(*expression);
         }
     }
     fn visit_logical_and_exp(&self, logical_and: LogicalAndExpression) {
         self.visit_bitwise_or_exp(logical_and.left);
         
-        if logical_and.right.is_some() {
-            self.visit_logical_and_exp(*logical_and.right.unwrap())
+        for expression in logical_and.right {
+            self.visit_logical_and_exp(*expression);
         }
     }
     fn visit_bitwise_or_exp(&self, bitwise_or: BitwiseOrExpression) {
         self.visit_bitwise_xor_exp(bitwise_or.left);
 
-        if bitwise_or.right.is_some() {
-            self.visit_bitwise_xor_exp(bitwise_or.right.unwrap());
+        for expression in bitwise_or.right {
+            self.visit_bitwise_xor_exp(expression);
         }
     }
     fn visit_bitwise_xor_exp(&self, bitwise_xor: BitwiseXorExpression) {
         self.visit_bitwise_and_exp(bitwise_xor.left);
 
-        if bitwise_xor.right.is_some() {
-            self.visit_bitwise_and_exp(bitwise_xor.right.unwrap());
+        for expression in bitwise_xor.right {
+            self.visit_bitwise_and_exp(expression);
         }
     }
     fn visit_bitwise_and_exp(&self, bitwise_and: BitwiseAndExpression) {
         self.visit_equal_exp(bitwise_and.left);
 
-        if bitwise_and.right.is_some() {
-            self.visit_equal_exp(bitwise_and.right.unwrap());
+        for expression in bitwise_and.right {
+            self.visit_equal_exp(expression);
         }
     }
     fn visit_equal_exp(&self, equal: EqualExpression) {
         self.visit_compare_exp(equal.left);
 
-        if equal.right.is_some() {
-            self.visit_compare_exp(equal.right.unwrap());
+        for expression in equal.slices {
+            self.visit_compare_exp(expression.right);
         }
     }
     fn visit_compare_exp(&self, compare: CompareExpression) {
         self.visit_shift_exp(compare.left);
 
-        if compare.right.is_some() {
-            self.visit_shift_exp(compare.right.unwrap());
+        for expression in compare.slices {
+            self.visit_shift_exp(expression.right);
         }
     }
     fn visit_shift_exp(&self, shift: ShiftExpression) {
         self.visit_plus_exp(shift.left);
 
-        if shift.right.is_some() {
-            self.visit_plus_exp(shift.right.unwrap());
+        for expression in shift.slices {
+            self.visit_plus_exp(expression.right);
         }
     }
     fn visit_plus_exp(&self, plus: PlusExpression) {
         self.visit_multiply_exp(plus.left);
 
-        if plus.right.is_some() {
-            self.visit_multiply_exp(plus.right.unwrap());
+        for expression in plus.slices {
+            self.visit_multiply_exp(expression.right);
         }
     }
     fn visit_multiply_exp(&self, multiply: MultiplyExpression) {
         self.visit_prefixed_exp(multiply.left);
 
-        if multiply.right.is_some() {
-            self.visit_prefixed_exp(multiply.right.unwrap());
+        for expression in multiply.slices {
+            self.visit_prefixed_exp(expression.right);
         }
     }
     fn visit_prefixed_exp(&self, prefixed: PrefixedExpression) {
         self.visit_factor(prefixed.factor);
 
-        if prefixed.expr_type.is_some() {
-            match prefixed.expr_type.unwrap() {
+        for expression in prefixed.expr_types {
+            match expression {
                 PrefixedExpressionType::DotAccess(identifier) => self.visit_identifier(identifier),
                 PrefixedExpressionType::ArrayStyleAccess(expression) => self.visit_expression(expression),
                 PrefixedExpressionType::PostIncrement => {},
@@ -389,78 +389,78 @@ pub trait SimpleVisitorMut {
     fn visit_logical_or_exp(&mut self, logical_or: LogicalOrExpression) {
         self.visit_logical_and_exp(logical_or.left);
 
-        if logical_or.right.is_some() {
-            self.visit_logical_or_exp(*logical_or.right.unwrap());
+        for expression in logical_or.right {
+            self.visit_logical_or_exp(*expression);
         }
     }
     fn visit_logical_and_exp(&mut self, logical_and: LogicalAndExpression) {
         self.visit_bitwise_or_exp(logical_and.left);
         
-        if logical_and.right.is_some() {
-            self.visit_logical_and_exp(*logical_and.right.unwrap())
+        for expression in logical_and.right {
+            self.visit_logical_and_exp(*expression);
         }
     }
     fn visit_bitwise_or_exp(&mut self, bitwise_or: BitwiseOrExpression) {
         self.visit_bitwise_xor_exp(bitwise_or.left);
 
-        if bitwise_or.right.is_some() {
-            self.visit_bitwise_xor_exp(bitwise_or.right.unwrap());
+        for expression in bitwise_or.right {
+            self.visit_bitwise_xor_exp(expression);
         }
     }
     fn visit_bitwise_xor_exp(&mut self, bitwise_xor: BitwiseXorExpression) {
         self.visit_bitwise_and_exp(bitwise_xor.left);
 
-        if bitwise_xor.right.is_some() {
-            self.visit_bitwise_and_exp(bitwise_xor.right.unwrap());
+        for expression in bitwise_xor.right {
+            self.visit_bitwise_and_exp(expression);
         }
     }
     fn visit_bitwise_and_exp(&mut self, bitwise_and: BitwiseAndExpression) {
         self.visit_equal_exp(bitwise_and.left);
 
-        if bitwise_and.right.is_some() {
-            self.visit_equal_exp(bitwise_and.right.unwrap());
+        for expression in bitwise_and.right {
+            self.visit_equal_exp(expression);
         }
     }
     fn visit_equal_exp(&mut self, equal: EqualExpression) {
         self.visit_compare_exp(equal.left);
 
-        if equal.right.is_some() {
-            self.visit_compare_exp(equal.right.unwrap());
+        for expression in equal.slices {
+            self.visit_compare_exp(expression.right);
         }
     }
     fn visit_compare_exp(&mut self, compare: CompareExpression) {
         self.visit_shift_exp(compare.left);
 
-        if compare.right.is_some() {
-            self.visit_shift_exp(compare.right.unwrap());
+        for expression in compare.slices {
+            self.visit_shift_exp(expression.right);
         }
     }
     fn visit_shift_exp(&mut self, shift: ShiftExpression) {
         self.visit_plus_exp(shift.left);
 
-        if shift.right.is_some() {
-            self.visit_plus_exp(shift.right.unwrap());
+        for expression in shift.slices {
+            self.visit_plus_exp(expression.right);
         }
     }
     fn visit_plus_exp(&mut self, plus: PlusExpression) {
         self.visit_multiply_exp(plus.left);
 
-        if plus.right.is_some() {
-            self.visit_multiply_exp(plus.right.unwrap());
+        for expression in plus.slices {
+            self.visit_multiply_exp(expression.right);
         }
     }
     fn visit_multiply_exp(&mut self, multiply: MultiplyExpression) {
         self.visit_prefixed_exp(multiply.left);
 
-        if multiply.right.is_some() {
-            self.visit_prefixed_exp(multiply.right.unwrap());
+        for expression in multiply.slices {
+            self.visit_prefixed_exp(expression.right);
         }
     }
     fn visit_prefixed_exp(&mut self, prefixed: PrefixedExpression) {
         self.visit_factor(prefixed.factor);
 
-        if prefixed.expr_type.is_some() {
-            match prefixed.expr_type.unwrap() {
+        for expression in prefixed.expr_types {
+            match expression {
                 PrefixedExpressionType::DotAccess(identifier) => self.visit_identifier(identifier),
                 PrefixedExpressionType::ArrayStyleAccess(expression) => self.visit_expression(expression),
                 PrefixedExpressionType::PostIncrement => {},
@@ -748,7 +748,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_logical_or_exp(&mut self, logical_or: LogicalOrExpression) {
-        if logical_or.right.is_none() {
+        if logical_or.right.is_empty() {
             self.visit_logical_and_exp(logical_or.left);
             return;
         }
@@ -759,7 +759,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_logical_and_exp(&mut self, logical_and: LogicalAndExpression) {
-        if logical_and.right.is_none() {
+        if logical_and.right.is_empty() {
             self.visit_bitwise_or_exp(logical_and.left);
             return;
         }
@@ -770,7 +770,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_bitwise_or_exp(&mut self, bitwise_or: BitwiseOrExpression) {
-        if bitwise_or.right.is_none() {
+        if bitwise_or.right.is_empty() {
             self.visit_bitwise_xor_exp(bitwise_or.left);
             return;
         }
@@ -781,7 +781,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_bitwise_xor_exp(&mut self, bitwise_xor: BitwiseXorExpression) {
-        if bitwise_xor.right.is_none() {
+        if bitwise_xor.right.is_empty() {
             self.visit_bitwise_and_exp(bitwise_xor.left);
             return;
         }
@@ -792,7 +792,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_bitwise_and_exp(&mut self, bitwise_and: BitwiseAndExpression) {
-        if bitwise_and.right.is_none() {
+        if bitwise_and.right.is_empty() {
             self.visit_equal_exp(bitwise_and.left);
             return;
         }
@@ -803,7 +803,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_equal_exp(&mut self, equal: EqualExpression) {
-        if equal.right.is_none() {
+        if equal.slices.is_empty() {
             self.visit_compare_exp(equal.left);
             return;
         }
@@ -814,7 +814,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_compare_exp(&mut self, compare: CompareExpression) {
-        if compare.right.is_none() {
+        if compare.slices.is_empty() {
             self.visit_shift_exp(compare.left);
             return;
         }
@@ -825,7 +825,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_shift_exp(&mut self, shift: ShiftExpression) {
-        if shift.right.is_none() {
+        if shift.slices.is_empty() {
             self.visit_plus_exp(shift.left);
             return;
         }
@@ -836,7 +836,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_plus_exp(&mut self, plus: PlusExpression) {
-        if plus.right.is_none() {
+        if plus.slices.is_empty() {
             self.visit_multiply_exp(plus.left);
             return;
         }
@@ -847,7 +847,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_multiply_exp(&mut self, multiply: MultiplyExpression) {
-        if multiply.right.is_none() {
+        if multiply.slices.is_empty() {
             self.visit_prefixed_exp(multiply.left);
             return;
         }
@@ -858,7 +858,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_prefixed_exp(&mut self, prefixed: PrefixedExpression) {
-        if prefixed.expr_type.is_none() {
+        if prefixed.expr_types.is_empty() {
             self.visit_factor(prefixed.factor);
             return;
         }

@@ -891,11 +891,11 @@ impl<'a> Parser<'a> {
 
     fn logical_or_expression(&mut self) -> Result<LogicalOrExpression, String> {
         let left = self.logical_and_expression()?;
-        let mut right = None;
+        let mut right = Vec::new();
 
-        if self.current_token_type() == TokenType::LogicalOr {
+        while self.current_token_type() == TokenType::LogicalOr {
             self.next_token();
-            right = Some(Box::new(self.logical_or_expression()?));
+            right.push(Box::new(self.logical_or_expression()?));
         }
 
         return Ok(LogicalOrExpression { left, right });
@@ -903,11 +903,11 @@ impl<'a> Parser<'a> {
 
     fn logical_and_expression(&mut self) -> Result<LogicalAndExpression, String> {
         let left = self.bitwise_or_expression()?;
-        let mut right = None;
+        let mut right = Vec::new();
 
-        if self.current_token_type() == TokenType::LogicalAnd {
+        while self.current_token_type() == TokenType::LogicalAnd {
             self.next_token();
-            right = Some(Box::new(self.logical_and_expression()?));
+            right.push(Box::new(self.logical_and_expression()?));
         }
 
         return Ok(LogicalAndExpression { left, right });
@@ -915,11 +915,11 @@ impl<'a> Parser<'a> {
 
     fn bitwise_or_expression(&mut self) -> Result<BitwiseOrExpression, String> {
         let left = self.bitwise_xor_expression()?;
-        let mut right = None;
+        let mut right = Vec::new();
 
-        if self.current_token_type() == TokenType::BitwiseOr {
+        while self.current_token_type() == TokenType::BitwiseOr {
             self.next_token();
-            right = Some(self.bitwise_xor_expression()?);
+            right.push(self.bitwise_xor_expression()?);
         }
         
         return Ok(BitwiseOrExpression { left, right });
@@ -927,11 +927,11 @@ impl<'a> Parser<'a> {
 
     fn bitwise_xor_expression(&mut self) -> Result<BitwiseXorExpression, String> {
         let left = self.bitwise_and_expression()?;
-        let mut right = None;
+        let mut right = Vec::new();
 
-        if self.current_token_type() == TokenType::BitwiseXor {
+        while self.current_token_type() == TokenType::BitwiseXor {
             self.next_token();
-            right = Some(self.bitwise_and_expression()?);
+            right.push(self.bitwise_and_expression()?);
         }
 
         return Ok(BitwiseXorExpression { left, right });
@@ -939,11 +939,11 @@ impl<'a> Parser<'a> {
 
     fn bitwise_and_expression(&mut self) -> Result<BitwiseAndExpression, String> {
         let left = self.equal_expression()?;
-        let mut right = None;
+        let mut right = Vec::new();
 
-        if self.current_token_type() == TokenType::BitwiseAnd {
+        while self.current_token_type() == TokenType::BitwiseAnd {
             self.next_token();
-            right = Some(self.equal_expression()?);
+            right.push(self.equal_expression()?);
         }
         
         return Ok(BitwiseAndExpression { left, right });
@@ -951,123 +951,140 @@ impl<'a> Parser<'a> {
 
     fn equal_expression(&mut self) -> Result<EqualExpression, String> {
         let left = self.compare_expression()?;
-        let mut operator = None;
-        let mut right = None;
+        let mut slices = Vec::new();
 
-        match self.current_token_type() {
-            TokenType::Equal | TokenType::NotEqual | TokenType::ThreeWayCompare => {
-                operator = Some(self.current_token_type());
-                self.next_token();
-                right = Some(self.compare_expression()?);
+        loop {
+            match self.current_token_type() {
+                TokenType::Equal | TokenType::NotEqual | TokenType::ThreeWayCompare => {
+                    let operator = self.current_token_type();
+                    self.next_token();
+                    let right = self.compare_expression()?;
+
+                    slices.push(BinaryOpSlice::new(operator, right));
+                }
+                _ => break,
             }
-            _ => {}
         }
 
-        return Ok(EqualExpression { left, operator, right });
+        return Ok(EqualExpression { left, slices });
     }
 
     fn compare_expression(&mut self) -> Result<CompareExpression, String> {
         let left = self.shift_expression()?;
-        let mut operator = None;
-        let mut right = None;
+        let mut slices = Vec::new();
 
-        match self.current_token_type() {
-            TokenType::GreaterThan | TokenType::GreaterOrEqual | TokenType::LessThan 
-                | TokenType::LessOrEqual | TokenType::In | TokenType::Instanceof => {
-                operator = Some(self.current_token_type());
-                self.next_token();
-                right = Some(self.shift_expression()?);
+        loop {
+            match self.current_token_type() {
+                TokenType::GreaterThan | TokenType::GreaterOrEqual | TokenType::LessThan 
+                    | TokenType::LessOrEqual | TokenType::In | TokenType::Instanceof => {
+                    let operator = self.current_token_type();
+                    self.next_token();
+                    let right = self.shift_expression()?;
+
+                    slices.push(BinaryOpSlice::new(operator, right));
+                }
+                _ => break,
             }
-            _ => {}
         }
 
-        return Ok(CompareExpression { left, operator, right });
+        return Ok(CompareExpression { left, slices });
     }
 
     fn shift_expression(&mut self) -> Result<ShiftExpression, String> {
         let left = self.plus_expression()?;
-        let mut operator = None;
-        let mut right = None;
+        let mut slices = Vec::new();
 
-        match self.current_token_type() {
-            TokenType::UnsignedShiftRight | TokenType::ShiftLeft | TokenType::ShiftRight => {
-                operator = Some(self.current_token_type());
-                self.next_token();
-                right = Some(self.plus_expression()?);
+        loop {
+            match self.current_token_type() {
+                TokenType::UnsignedShiftRight | TokenType::ShiftLeft | TokenType::ShiftRight => {
+                    let operator = self.current_token_type();
+                    self.next_token();
+                    let right = self.plus_expression()?;
+
+                    slices.push(BinaryOpSlice::new(operator, right));
+                }
+                _ => break,
             }
-            _ => {}
         }
 
-        return Ok(ShiftExpression { left, operator, right });
+        return Ok(ShiftExpression { left, slices });
     }
 
     fn plus_expression(&mut self) -> Result<PlusExpression, String> {
         let left = self.multiply_expression()?;
-        let mut operator = None;
-        let mut right = None;
+        let mut slices = Vec::new();
 
-        match self.current_token_type() {
-            TokenType::Plus | TokenType::Minus => {
-                operator = Some(self.current_token_type());
-                self.next_token();
-                right = Some(self.multiply_expression()?);
+        loop {
+            match self.current_token_type() {
+                TokenType::Plus | TokenType::Minus => {
+                    let operator = self.current_token_type();
+                    self.next_token();
+                    let right = self.multiply_expression()?;
+
+                    slices.push(BinaryOpSlice::new(operator, right))
+                }
+                _ => break,
             }
-            _ => {}
         }
 
-        return Ok(PlusExpression { left, operator, right });
+        return Ok(PlusExpression { left, slices });
     }
 
     fn multiply_expression(&mut self) -> Result<MultiplyExpression, String> {
         let left = self.prefixed_expression()?;
-        let mut operator = None;
-        let mut right = None;
+        let mut slices = Vec::new();
 
-        match self.current_token_type() {
-            TokenType::Multiply | TokenType::Divide | TokenType::Modulo => {
-                operator = Some(self.current_token_type());
-                self.next_token();
-                right = Some(self.prefixed_expression()?);
+        loop {
+            match self.current_token_type() {
+                TokenType::Multiply | TokenType::Divide | TokenType::Modulo => {
+                    let operator = self.current_token_type();
+                    self.next_token();
+                    let right = self.prefixed_expression()?;
+
+                    slices.push(BinaryOpSlice::new(operator, right))
+                }
+                _ => break,
             }
-            _ => {}
         }
 
-        return Ok(MultiplyExpression { left, operator, right });
+        return Ok(MultiplyExpression { left, slices });
     }
 
     fn prefixed_expression(&mut self) -> Result<PrefixedExpression, String> {
         let factor = self.factor()?;
-        let mut expr_type = None;
+        let mut expr_types = Vec::new();
 
-        match self.current_token_type() {
-            TokenType::Dot => {
-                self.next_token();
-                let id = Identifier::from(self.expect(TokenType::Identifier)?);
+        loop {
+            match self.current_token_type() {
+                TokenType::Dot => {
+                    self.next_token();
+                    let id = Identifier::from(self.expect(TokenType::Identifier)?);
 
-                expr_type = Some(PrefixedExpressionType::DotAccess(id));
-            }
-            TokenType::LeftSquare => {
-                self.next_token();
-                let expression = self.expression()?;
-                self.expect(TokenType::RightSquare)?;
+                    expr_types.push(PrefixedExpressionType::DotAccess(id));
+                }
+                TokenType::LeftSquare => {
+                    self.next_token();
+                    let expression = self.expression()?;
+                    self.expect(TokenType::RightSquare)?;
 
-                expr_type = Some(PrefixedExpressionType::ArrayStyleAccess(expression));
+                    expr_types.push(PrefixedExpressionType::ArrayStyleAccess(expression));
+                }
+                TokenType::PlusPlus => {
+                    expr_types.push(PrefixedExpressionType::PostIncrement);
+                    self.next_token();
+                }
+                TokenType::MinusMinus => {
+                    expr_types.push(PrefixedExpressionType::PostDecrement);
+                    self.next_token();
+                }
+                TokenType::LeftParen => {
+                    expr_types.push(PrefixedExpressionType::FunctionCall(self.function_call_args()?));
+                }
+                _ => break,
             }
-            TokenType::PlusPlus => {
-                expr_type = Some(PrefixedExpressionType::PostIncrement);
-                self.next_token();
-            }
-            TokenType::MinusMinus => {
-                expr_type = Some(PrefixedExpressionType::PostDecrement);
-                self.next_token();
-            }
-            TokenType::LeftParen => {
-                expr_type = Some(PrefixedExpressionType::FunctionCall(self.function_call_args()?));
-            }
-            _ => {}
         }
 
-        return Ok(PrefixedExpression { factor, expr_type });
+        return Ok(PrefixedExpression { factor, expr_types });
     }
 
     fn function_call_args(&mut self) -> Result<FunctionCallArgs, String> {
