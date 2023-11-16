@@ -653,7 +653,7 @@ impl<'a,'b> Lexer<'b> {
             }
             
             match self.cur_char {
-                'a'..='z' | 'A'..='Z' => self.lex_identifier(),
+                'a'..='z' | 'A'..='Z' | '_' => self.lex_identifier(),
                 '0'..='9' => self.lex_number(),
                 '\'' | '"' => self.lex_string(false),
                 '@' => {
