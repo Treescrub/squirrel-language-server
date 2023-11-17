@@ -1,7 +1,7 @@
 use crate::lexer::{TokenType, Token};
 
 pub struct Script {
-    pub statements: Vec<Statement>,
+    pub statements: Statements,
 }
 
 pub struct Statements {

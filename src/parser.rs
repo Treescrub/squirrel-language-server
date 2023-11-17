@@ -90,7 +90,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        return Ok(Script { statements })
+        return Ok(Script { statements: Statements { statements } })
     }
 
     fn optional_semicolon(&mut self) -> Result<(), String> {
