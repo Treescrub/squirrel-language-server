@@ -597,11 +597,7 @@ impl<'a,'b> Lexer<'b> {
 
         match num_type {
             NumberType::Int => {
-                match parse_chars.parse() {
-                    Ok(val) => self.end_token_with_nval(TokenType::IntegerLiteral, val),
-                    Err(_) => self.end_bad_token()
-                }
-                
+                self.end_token_with_nval(TokenType::IntegerLiteral, Self::lex_integer(parse_chars));
             }
             NumberType::Hex => {
                 match i32::from_str_radix(&parse_chars, 16) {
@@ -629,6 +625,16 @@ impl<'a,'b> Lexer<'b> {
                 }
             }
         }
+    }
+
+    fn lex_integer(chars: String) -> i32 {
+        let mut result: i32 = 0;
+        for char in chars.chars() {
+            result = result.wrapping_mul(10);
+            result = result.wrapping_add(char.to_digit(10).unwrap() as i32);
+        }
+
+        return result;
     }
 
     pub fn lex(&mut self) {
