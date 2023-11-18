@@ -482,16 +482,22 @@ impl<'a> Parser<'a> {
     fn scalar(&mut self) -> Result<Scalar, String> {
         match self.current_token_type() {
             TokenType::IntegerLiteral => {
+                let value = self.current_token().nvalue.unwrap();
                 self.next_token();
-                return Ok(Scalar::Integer);
+
+                return Ok(Scalar::Integer(value));
             }
             TokenType::FloatLiteral => {
+                let value = self.current_token().fvalue.unwrap();
                 self.next_token();
-                return Ok(Scalar::Float);
+
+                return Ok(Scalar::Float(value));
             }
             TokenType::StringLiteral => {
+                let value = self.current_token().svalue.as_ref().unwrap().to_string();
                 self.next_token();
-                return Ok(Scalar::StringLiteral);
+
+                return Ok(Scalar::StringLiteral(value));
             }
             TokenType::True => {
                 self.next_token();
@@ -505,12 +511,16 @@ impl<'a> Parser<'a> {
                 self.next_token();
                 match self.current_token_type() {
                     TokenType::IntegerLiteral => {
+                        let value = self.current_token().nvalue.unwrap();
                         self.next_token();
-                        return Ok(Scalar::Integer);
+
+                        return Ok(Scalar::Integer(value));
                     }
                     TokenType::FloatLiteral => {
+                        let value = self.current_token().fvalue.unwrap();
                         self.next_token();
-                        return Ok(Scalar::Float);
+
+                        return Ok(Scalar::Float(value));
                     }
                     unhandled_type => {
                         return Err(self.build_error(format!("expected int or float scalar, got '{}'", unhandled_type)));
@@ -526,9 +536,10 @@ impl<'a> Parser<'a> {
     fn factor(&mut self) -> Result<Factor, String> {
         match self.current_token_type() {
             TokenType::StringLiteral => {
+                let value = self.current_token().svalue.as_ref().unwrap().to_string();
                 self.next_token();
 
-                return Ok(Factor::Scalar(Scalar::StringLiteral));
+                return Ok(Factor::Scalar(Scalar::StringLiteral(value)));
             }
             TokenType::Base => {
                 self.next_token();
@@ -562,14 +573,16 @@ impl<'a> Parser<'a> {
                 return Ok(Factor::Null);
             }
             TokenType::IntegerLiteral => {
+                let value = self.current_token().nvalue.unwrap();
                 self.next_token();
 
-                return Ok(Factor::Scalar(Scalar::Integer));
+                return Ok(Factor::Scalar(Scalar::Integer(value)));
             }
             TokenType::FloatLiteral => {
+                let value = self.current_token().fvalue.unwrap();
                 self.next_token();
 
-                return Ok(Factor::Scalar(Scalar::Float));
+                return Ok(Factor::Scalar(Scalar::Float(value)));
             }
             TokenType::True => {
                 self.next_token();
@@ -605,14 +618,16 @@ impl<'a> Parser<'a> {
 
                 match self.current_token_type() {
                     TokenType::IntegerLiteral => {
+                        let value = self.current_token().nvalue.unwrap();
                         self.next_token();
 
-                        return Ok(Factor::Scalar(Scalar::Integer));
+                        return Ok(Factor::Scalar(Scalar::Integer(value)));
                     }
                     TokenType::FloatLiteral => {
+                        let value = self.current_token().fvalue.unwrap();
                         self.next_token();
 
-                        return Ok(Factor::Scalar(Scalar::Float));
+                        return Ok(Factor::Scalar(Scalar::Float(value)));
                     }
                     _ => {
                         return Ok(Factor::UnaryOp(Box::new(self.unary_op()?)));

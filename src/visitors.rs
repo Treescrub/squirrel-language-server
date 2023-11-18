@@ -1247,9 +1247,9 @@ impl SimpleVisitorMut for PrettyPrinter {
 
     fn visit_scalar(&mut self, scalar: Scalar) {
         match scalar {
-            Scalar::Integer => self.print("INTEGER"),
-            Scalar::Float => self.print("FLOAT"),
-            Scalar::StringLiteral => self.print("STRING"),
+            Scalar::Integer(value) => self.print(&format!("INTEGER: {}", value)),
+            Scalar::Float(value) => self.print(&format!("FLOAT: {}", value)),
+            Scalar::StringLiteral(value) => self.print(&format!("STRING: {}", value)),
             Scalar::True => self.print("TRUE"),
             Scalar::False => self.print("FALSE"),
         }

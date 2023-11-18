@@ -40,9 +40,9 @@ pub struct EnumEntry {
 }
 
 pub enum Scalar {
-    Integer,
-    Float,
-    StringLiteral,
+    Integer(i32),
+    Float(f32),
+    StringLiteral(String),
     True,
     False,
 }
