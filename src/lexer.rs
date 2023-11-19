@@ -606,10 +606,7 @@ impl<'a,'b> Lexer<'b> {
                 }
             }
             NumberType::Octal => {
-                match i32::from_str_radix(&parse_chars, 8) {
-                    Ok(val) => self.end_token_with_nval(TokenType::IntegerLiteral, val),
-                    Err(_) => self.end_bad_token()
-                }
+                self.end_token_with_nval(TokenType::IntegerLiteral, Self::lex_octal(parse_chars));
             }
             NumberType::Float => {
                 match parse_chars.parse() {
@@ -631,6 +628,16 @@ impl<'a,'b> Lexer<'b> {
         let mut result: i32 = 0;
         for char in chars.chars() {
             result = result.wrapping_mul(10);
+            result = result.wrapping_add(char.to_digit(10).unwrap() as i32);
+        }
+
+        return result;
+    }
+
+    fn lex_octal(chars: String) -> i32 {
+        let mut result: i32 = 0;
+        for char in chars.chars() {
+            result = result.wrapping_mul(8);
             result = result.wrapping_add(char.to_digit(10).unwrap() as i32);
         }
 
