@@ -113,9 +113,9 @@ impl LanguageServer for Backend {
         self.client
             .log_message(MessageType::INFO, "file opened!")
             .await;
-        self.client
+        /*self.client
             .log_message(MessageType::INFO, format!("tokens:\n{}", tokens))
-            .await;
+            .await;*/
         
         let mut parser: Parser = Parser::new(&lexer.tokens);
         let parse_result = parser.parse();
