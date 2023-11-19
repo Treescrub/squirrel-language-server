@@ -631,13 +631,16 @@ impl<'a> Parser<'a> {
                         return Ok(Factor::Scalar(Scalar::Float(value)));
                     }
                     _ => {
-                        return Ok(Factor::UnaryOp(Box::new(self.unary_op()?)));
+                        return Ok(Factor::UnaryOp(Box::new(self.unary_op(TokenType::Minus)?)));
                     }
                 }
             }
             TokenType::LogicalNot | TokenType::BitwiseNot | TokenType::Typeof | TokenType::Resume | TokenType::Clone
                 | TokenType::MinusMinus | TokenType::PlusPlus => {
-                return Ok(Factor::UnaryOp(Box::new(self.unary_op()?)));
+                let operator = self.current_token_type();
+                self.next_token();
+
+                return Ok(Factor::UnaryOp(Box::new(self.unary_op(operator)?)));
             }
             TokenType::Rawcall => {
                 self.next_token();
@@ -1163,9 +1166,8 @@ impl<'a> Parser<'a> {
         return Ok(CommaExpression { expressions });
     }
 
-    fn unary_op(&mut self) -> Result<UnaryOp, String> {
-        let operator: TokenType;
-        match self.current_token_type() {
+    fn unary_op(&mut self, operator: TokenType) -> Result<UnaryOp, String> {
+        /*match self.current_token_type() {
             TokenType::Minus | TokenType::BitwiseNot | TokenType::LogicalNot | TokenType::Typeof
             | TokenType::Resume | TokenType::Clone | TokenType::PlusPlus | TokenType::MinusMinus => {
                 operator = self.current_token_type();
@@ -1173,8 +1175,8 @@ impl<'a> Parser<'a> {
             token_type => {
                 return Err(self.build_error(format!("unary op with unhandled token '{}'", token_type)));
             }
-        }
-        self.next_token();
+        }*/
+        // self.next_token();
         let expression = self.prefixed_expression()?;
 
         return Ok(UnaryOp { operator, expression });
