@@ -31,12 +31,13 @@ pub trait SimpleVisitor {
     }
     fn visit_local_declare(&self, local_declare: LocalDeclare) {
         match local_declare {
-            LocalDeclare::Function(identifier, bind_env, params) => {
+            LocalDeclare::Function(identifier, bind_env, params, body) => {
                 self.visit_identifier(identifier);
                 if let Some(bind_env) = bind_env {
                     self.visit_expression(bind_env);
                 }
                 self.visit_func_params(params);
+                self.visit_statement(*body);
             }
             LocalDeclare::Assign(assign_exprs) => {
                 for assign_expr in assign_exprs {
@@ -266,12 +267,13 @@ pub trait SimpleVisitorMut {
     }
     fn visit_local_declare(&mut self, local_declare: LocalDeclare) {
         match local_declare {
-            LocalDeclare::Function(identifier, bind_env, params) => {
+            LocalDeclare::Function(identifier, bind_env, params, body) => {
                 self.visit_identifier(identifier);
                 if let Some(bind_env) = bind_env {
                     self.visit_expression(bind_env);
                 }
                 self.visit_func_params(params);
+                self.visit_statement(*body);
             }
             LocalDeclare::Assign(assign_exprs) => {
                 for assign_expr in assign_exprs {
@@ -746,7 +748,7 @@ impl SimpleVisitorMut for PrettyPrinter {
 
     fn visit_local_declare(&mut self, local_declare: LocalDeclare) {
         match local_declare {
-            LocalDeclare::Function(identifier, bind_env, params) => {
+            LocalDeclare::Function(identifier, bind_env, params, body) => {
                 self.print("FUNCTION");
 
                 self.push_level();
@@ -755,6 +757,7 @@ impl SimpleVisitorMut for PrettyPrinter {
                     self.visit_expression(bind_env);
                 }
                 self.visit_func_params(params);
+                self.visit_statement(*body);
                 self.pop_level();
             }
             LocalDeclare::Assign(assign_exprs) => {

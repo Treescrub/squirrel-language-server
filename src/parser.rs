@@ -438,8 +438,9 @@ impl<'a> Parser<'a> {
             }
 
             let params = self.function_params()?;
+            let body = Box::new(self.statement()?);
 
-            return Ok(LocalDeclare::Function(identifier, bind_env, params));
+            return Ok(LocalDeclare::Function(identifier, bind_env, params, body));
         }
 
         let mut assign_expressions = Vec::new();
