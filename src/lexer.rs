@@ -406,8 +406,9 @@ impl<'a,'b> Lexer<'b> {
         if self.cur_char == '\n' {
             self.line += 1;
             self.column = 0;
+        } else {
+            self.column += 1;
         }
-        self.column += 1;
 
         return self.cur_char;
     }
