@@ -55,7 +55,7 @@ impl<'a> Parser<'a> {
 
     fn expect(&mut self, token_type: TokenType) -> Result<&Token, String> {
         if self.current_token_type() != token_type {
-            return Err(format!("Expected token `{}`, got `{}`", token_type, self.current_token_type()));
+            return Err(self.build_error(format!("Expected token `{}`, got `{}`", token_type, self.current_token_type())));
         }
 
         let cur_token = self.current_token();
