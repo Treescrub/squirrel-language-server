@@ -1,6 +1,8 @@
 use core::fmt;
 use std::{str::Chars, iter::Peekable, collections::HashMap, fmt::Display};
 
+use tower_lsp::lsp_types::Position;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum TokenType {
     Identifier,
@@ -264,6 +266,10 @@ impl TokenLocation {
             line: 0,
             column: 0,
         }
+    }
+
+    pub fn to_position(&self) -> Position {
+        Position { line: self.line - 1, character: self.column - 1 }
     }
 }
 

@@ -7,6 +7,7 @@ mod ast;
 mod visitors;
 
 use document_manager::DocumentManager;
+use parser::ParseError;
 use serde_json::Value;
 use tokio::sync::Mutex;
 use tower_lsp::jsonrpc::Result;
@@ -20,6 +21,31 @@ use crate::parser::Parser;
 struct Backend {
     client: Client,
     state: Mutex<State>,
+}
+
+impl Backend {
+    async fn handle_parse_result(&self, result: std::result::Result<ast::Script, ParseError>, uri: Url, version: i32) {
+        match result {
+            Ok(script) => {
+                self.client.log_message(MessageType::INFO, "Successfully parsed").await;
+                self.client.publish_diagnostics(uri, Vec::new(), Some(version)).await;
+
+                let mut pretty_printer = PrettyPrinter::new();
+
+                pretty_printer.visit_script(script);
+                self.client.log_message(MessageType::INFO, "Pretty printer:").await;
+                self.client.log_message(MessageType::LOG, pretty_printer.text).await;
+            }
+            Err(error) => {
+                self.client.log_message(MessageType::ERROR, format!("Failed to parse: {}", error)).await;
+                self.client.log_message(MessageType::INFO, format!("start: (line: {}, column: {}), end: (line: {}, column: {})",
+                        error.range.start.line, error.range.start.column, error.range.end.line, error.range.end.column)).await;
+                let mut diagnostics = Vec::new();
+                diagnostics.push(Diagnostic::new_simple(Range { start: error.range.start.to_position(), end: error.range.end.to_position() }, error.message));
+                self.client.publish_diagnostics(uri, diagnostics, Some(version)).await;
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -119,19 +145,7 @@ impl LanguageServer for Backend {
         
         let mut parser: Parser = Parser::new(&lexer.tokens);
         let parse_result = parser.parse();
-        match parse_result {
-            Ok(script) => {
-                self.client.log_message(MessageType::INFO, "Successfully parsed").await;
-                let mut pretty_printer = PrettyPrinter::new();
-
-                pretty_printer.visit_script(script);
-                self.client.log_message(MessageType::INFO, "Pretty printer:").await;
-                self.client.log_message(MessageType::LOG, pretty_printer.text).await;
-            }
-            Err(message) => {
-                self.client.log_message(MessageType::ERROR, format!("Failed to parse: {}", message)).await;
-            }
-        }
+        self.handle_parse_result(parse_result, params.text_document.uri.clone(), params.text_document.version).await;
         
         let mut state = self.state.lock().await;
         state.doc_manager.open_file(&params.text_document.text, &params.text_document.uri);
@@ -150,8 +164,15 @@ impl LanguageServer for Backend {
 
         let mut state = self.state.lock().await;
         for content_change in &params.content_changes {
-            state.doc_manager.edit_file(&content_change.text, &params.text_document.uri, content_change.range.unwrap());
+            state.doc_manager.edit_file(&content_change.text, &params.text_document.uri, content_change.range);
         }
+
+        let mut lexer: Lexer = Lexer::new(state.doc_manager.get(&params.text_document.uri).unwrap());
+        lexer.lex();
+
+        let mut parser: Parser = Parser::new(&lexer.tokens);
+        let parse_result = parser.parse();
+        self.handle_parse_result(parse_result, params.text_document.uri.clone(), params.text_document.version).await;
 
         /*self.client
             .log_message(MessageType::INFO, format!("contents: {}", state.doc_manager.get(&params.text_document.uri).unwrap()))
@@ -159,26 +180,6 @@ impl LanguageServer for Backend {
     }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
-        let state = self.state.lock().await;
-        let mut lexer: Lexer = Lexer::new(state.doc_manager.get(&params.text_document.uri).unwrap());
-        lexer.lex();
-        
-        let mut parser: Parser = Parser::new(&lexer.tokens);
-        let parse_result = parser.parse();
-        match parse_result {
-            Ok(script) => {
-                self.client.log_message(MessageType::INFO, "Successfully parsed").await;
-                let mut pretty_printer = PrettyPrinter::new();
-
-                pretty_printer.visit_script(script);
-                self.client.log_message(MessageType::INFO, "Pretty printer:").await;
-                self.client.log_message(MessageType::LOG, pretty_printer.text).await;
-            }
-            Err(message) => {
-                self.client.log_message(MessageType::ERROR, format!("Failed to parse: {}", message)).await;
-            }
-        }
-
         self.client
             .log_message(MessageType::INFO, "file saved!")
             .await;

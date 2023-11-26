@@ -1,5 +1,27 @@
+use std::fmt::Display;
+
 use crate::ast::*;
 use crate::lexer::*;
+
+pub struct ParseError {
+    pub message: String,
+    pub range: TokenRange,
+}
+
+impl ParseError {
+    pub fn new(message: String, range: TokenRange) -> Self {
+        Self {
+            message,
+            range,
+        }
+    }
+}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} (line {}, column {})", self.message, self.range.start.line, self.range.start.column)
+    }
+}
 
 pub struct Parser<'a> {
     tokens: &'a Vec<Token>,
@@ -14,7 +36,7 @@ impl<'a> Parser<'a> {
         }
     }
     
-    pub fn parse(&mut self) -> Result<Script, String> {
+    pub fn parse(&mut self) -> Result<Script, ParseError> {
         self.ignore_newlines();
 
         // hacky way to prevent stack overflow :/
@@ -53,9 +75,9 @@ impl<'a> Parser<'a> {
         return self.current_token().token_type;
     }
 
-    fn expect(&mut self, token_type: TokenType) -> Result<&Token, String> {
+    fn expect(&mut self, token_type: TokenType) -> Result<&Token, ParseError> {
         if self.current_token_type() != token_type {
-            return Err(self.build_error(format!("Expected token `{}`, got `{}`", token_type, self.current_token_type())));
+            return Err(ParseError::new(format!("Expected token `{}`, got `{}`", token_type, self.current_token_type()), self.current_token().range));
         }
 
         let cur_token = self.current_token();
@@ -73,15 +95,13 @@ impl<'a> Parser<'a> {
                 || self.current_token_type() == TokenType::RightCurly || self.current_token_type() == TokenType::Semicolon;
     }
 
-    fn build_error(&self, mut message: String) -> String {
-        message.push_str(&format!(" (on line {}, col {}, token {})", self.current_token().range.start.line, self.current_token().range.start.column, self.token_index));
-
-        return message;
+    fn build_error(&self, message: String) -> ParseError {
+        return ParseError::new(message, self.current_token().range);
     }
 
     // ---------------------------------------------------
 
-    fn script(&mut self) -> Result<Script, String> {
+    fn script(&mut self) -> Result<Script, ParseError> {
         let mut statements: Vec<Statement> = Vec::new();
         while !self.is_end_of_tokens() {
             statements.push(self.statement()?);
@@ -93,7 +113,7 @@ impl<'a> Parser<'a> {
         return Ok(Script { statements: Statements { statements } })
     }
 
-    fn optional_semicolon(&mut self) -> Result<(), String> {
+    fn optional_semicolon(&mut self) -> Result<(), ParseError> {
         if self.current_token_type() == TokenType::Semicolon {
             self.next_token();
             return Ok(());
@@ -106,7 +126,7 @@ impl<'a> Parser<'a> {
         return Ok(());
     }
 
-    fn statement(&mut self) -> Result<Statement, String> {
+    fn statement(&mut self) -> Result<Statement, ParseError> {
         match self.current_token_type() {
             TokenType::If => {
                 return self.if_statement();
@@ -181,7 +201,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn if_statement(&mut self) -> Result<Statement, String> {
+    fn if_statement(&mut self) -> Result<Statement, ParseError> {
         self.next_token();
         self.expect(TokenType::LeftParen)?;
         let comma_expression = self.comma_expression()?;
@@ -198,7 +218,7 @@ impl<'a> Parser<'a> {
         return Ok(Statement::If(comma_expression, if_block, else_block));
     }
 
-    fn while_statement(&mut self) -> Result<Statement, String> {
+    fn while_statement(&mut self) -> Result<Statement, ParseError> {
         self.next_token();
         self.expect(TokenType::LeftParen)?;
         let comma_expression = self.comma_expression()?;
@@ -208,7 +228,7 @@ impl<'a> Parser<'a> {
         return Ok(Statement::While(comma_expression, statement));
     }
 
-    fn do_while_statement(&mut self) -> Result<Statement, String> {
+    fn do_while_statement(&mut self) -> Result<Statement, ParseError> {
         self.next_token();
         let statement = Box::new(self.statement()?);
         self.expect(TokenType::While)?;
@@ -219,7 +239,7 @@ impl<'a> Parser<'a> {
         return Ok(Statement::DoWhile(statement, comma_expression));
     }
 
-    fn for_statement(&mut self) -> Result<Statement, String> {
+    fn for_statement(&mut self) -> Result<Statement, ParseError> {
         self.next_token();
         self.expect(TokenType::LeftParen)?;
 
@@ -252,7 +272,7 @@ impl<'a> Parser<'a> {
         return Ok(Statement::For(init, condition, post, statement));
     }
 
-    fn for_each_statement(&mut self) -> Result<Statement, String> {
+    fn for_each_statement(&mut self) -> Result<Statement, ParseError> {
         self.next_token();
         self.expect(TokenType::LeftParen)?;
         let mut value_identifier = Identifier::from(self.expect(TokenType::Identifier)?);
@@ -272,7 +292,7 @@ impl<'a> Parser<'a> {
         return Ok(Statement::ForEach(value_identifier, key_identifier, expression, statement));
     }
 
-    fn switch_statement(&mut self) -> Result<Statement, String> {
+    fn switch_statement(&mut self) -> Result<Statement, ParseError> {
         self.next_token();
         self.expect(TokenType::LeftParen)?;
         let value = self.comma_expression()?;
@@ -303,7 +323,7 @@ impl<'a> Parser<'a> {
         return Ok(Statement::Switch(value, switch_cases, default));
     }
 
-    fn function_statement(&mut self) -> Result<Statement, String> {
+    fn function_statement(&mut self) -> Result<Statement, ParseError> {
         self.next_token();
 
         let mut identifiers = Vec::new();
@@ -331,7 +351,7 @@ impl<'a> Parser<'a> {
         return Ok(Statement::Function(function_identifier, bind_env, params, body));
     }
 
-    fn class_statement(&mut self) -> Result<Statement, String> {
+    fn class_statement(&mut self) -> Result<Statement, ParseError> {
         self.next_token();
         let class_name = self.prefixed_expression()?;
         let class_expression = self.class_expression()?;
@@ -339,7 +359,7 @@ impl<'a> Parser<'a> {
         return Ok(Statement::Class(class_name, class_expression));
     }
 
-    fn enum_statement(&mut self) -> Result<Statement, String> {
+    fn enum_statement(&mut self) -> Result<Statement, ParseError> {
         self.next_token();
         let name = Identifier::from(self.expect(TokenType::Identifier)?);
         self.expect(TokenType::LeftCurly)?;
@@ -366,7 +386,7 @@ impl<'a> Parser<'a> {
         return Ok(Statement::Enum(name, EnumValues { values: entries }));
     }
 
-    fn statement_block(&mut self) -> Result<Statement, String> {
+    fn statement_block(&mut self) -> Result<Statement, ParseError> {
         self.next_token();
         let statements = self.statements()?;
         self.expect(TokenType::RightCurly)?;
@@ -374,7 +394,7 @@ impl<'a> Parser<'a> {
         return Ok(Statement::StatementBlock(statements));
     }
 
-    fn try_statement(&mut self) -> Result<Statement, String> {
+    fn try_statement(&mut self) -> Result<Statement, ParseError> {
         self.next_token();
         let try_body = Box::new(self.statement()?);
         self.expect(TokenType::Catch)?;
@@ -386,7 +406,7 @@ impl<'a> Parser<'a> {
         return Ok(Statement::TryCatch(try_body, identifier, catch_body));
     }
 
-    fn function_params(&mut self) -> Result<FunctionParams, String> {
+    fn function_params(&mut self) -> Result<FunctionParams, ParseError> {
         self.expect(TokenType::LeftParen)?;
 
         let mut params = Vec::new();
@@ -425,7 +445,7 @@ impl<'a> Parser<'a> {
         return Ok(FunctionParams { params });
     }
 
-    fn local_declare(&mut self) -> Result<LocalDeclare, String> {
+    fn local_declare(&mut self) -> Result<LocalDeclare, ParseError> {
         self.next_token();
         if self.current_token_type() == TokenType::Function {
             self.next_token();
@@ -458,7 +478,7 @@ impl<'a> Parser<'a> {
         return Ok(LocalDeclare::Assign(assign_expressions));
     }
 
-    fn assign_expression(&mut self) -> Result<AssignExpression, String> {
+    fn assign_expression(&mut self) -> Result<AssignExpression, ParseError> {
         let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
         let mut expression = None;
 
@@ -470,7 +490,7 @@ impl<'a> Parser<'a> {
         return Ok(AssignExpression { identifier, value: expression });
     }
 
-    fn const_statement(&mut self) -> Result<Statement, String> {
+    fn const_statement(&mut self) -> Result<Statement, ParseError> {
         self.next_token();
         let id = Identifier::from(self.expect(TokenType::Identifier)?);
         self.expect(TokenType::Assign)?;
@@ -480,7 +500,7 @@ impl<'a> Parser<'a> {
         return Ok(Statement::Const(id, scalar));
     }
 
-    fn scalar(&mut self) -> Result<Scalar, String> {
+    fn scalar(&mut self) -> Result<Scalar, ParseError> {
         match self.current_token_type() {
             TokenType::IntegerLiteral => {
                 let value = self.current_token().nvalue.unwrap();
@@ -534,7 +554,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn factor(&mut self) -> Result<Factor, String> {
+    fn factor(&mut self) -> Result<Factor, ParseError> {
         match self.current_token_type() {
             TokenType::StringLiteral => {
                 let value = self.current_token().svalue.as_ref().unwrap().to_string();
@@ -676,7 +696,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn simple_table_entry(&mut self) -> Result<TableEntry, String> {
+    fn simple_table_entry(&mut self) -> Result<TableEntry, ParseError> {
         let key = Identifier::from(self.expect(TokenType::Identifier)?);
         self.expect(TokenType::Assign)?;
         let value = self.expression()?;
@@ -684,7 +704,7 @@ impl<'a> Parser<'a> {
         return Ok(TableEntry::Simple(key, value))
     }
 
-    fn table_entry(&mut self, is_class: bool) -> Result<TableEntry, String> {
+    fn table_entry(&mut self, is_class: bool) -> Result<TableEntry, ParseError> {
         match self.current_token_type() {
             TokenType::Function => {
                 self.next_token();
@@ -728,7 +748,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn table(&mut self) -> Result<Table, String> {
+    fn table(&mut self) -> Result<Table, ParseError> {
         self.next_token();
 
         let mut entries = Vec::new();
@@ -745,7 +765,7 @@ impl<'a> Parser<'a> {
         return Ok(Table { entries });
     }
 
-    fn statements(&mut self) -> Result<Statements, String> {
+    fn statements(&mut self) -> Result<Statements, ParseError> {
         let mut statements: Vec<Statement> = Vec::new();
         while self.current_token_type() != TokenType::RightCurly && self.current_token_type() != TokenType::Default && self.current_token_type() != TokenType::Case {
             statements.push(self.statement()?);
@@ -758,7 +778,7 @@ impl<'a> Parser<'a> {
         return Ok(Statements {statements})
     }
 
-    fn expression(&mut self) -> Result<Expression, String> {
+    fn expression(&mut self) -> Result<Expression, ParseError> {
         let logical_or = Box::new(self.logical_or_expression()?);
         let mut expr_type = None;
 
@@ -801,7 +821,7 @@ impl<'a> Parser<'a> {
         return Ok(Expression { logical_or, expr_type });
     }
 
-    fn function_expression(&mut self) -> Result<Factor, String> {
+    fn function_expression(&mut self) -> Result<Factor, ParseError> {
         self.next_token();
 
         let mut bind_env = None;
@@ -818,7 +838,7 @@ impl<'a> Parser<'a> {
         return Ok(Factor::FunctionExpression(bind_env, params, Box::new(body)))
     }
 
-    fn lambda_expression(&mut self) -> Result<Factor, String> {
+    fn lambda_expression(&mut self) -> Result<Factor, ParseError> {
         self.next_token();
 
         let mut bind_env = None;
@@ -835,7 +855,7 @@ impl<'a> Parser<'a> {
         return Ok(Factor::LambdaExpression(bind_env, params, body))
     }
 
-    fn array_init(&mut self) -> Result<Factor, String> {
+    fn array_init(&mut self) -> Result<Factor, ParseError> {
         let mut expressions = Vec::new();
 
         while self.current_token_type() != TokenType::RightSquare {
@@ -851,7 +871,7 @@ impl<'a> Parser<'a> {
         return Ok(Factor::ArrayInit(expressions));
     }
 
-    fn class_expression(&mut self) -> Result<ClassExpression, String> {
+    fn class_expression(&mut self) -> Result<ClassExpression, ParseError> {
         let mut base_class = None;
         let mut attributes = None;
 
@@ -868,7 +888,7 @@ impl<'a> Parser<'a> {
         return Ok(ClassExpression { base_class, attributes, body });
     }
 
-    fn class_table(&mut self) -> Result<Table, String> {
+    fn class_table(&mut self) -> Result<Table, ParseError> {
         self.expect(TokenType::LeftCurly)?;
 
         let mut entries = Vec::new();
@@ -892,7 +912,7 @@ impl<'a> Parser<'a> {
         return Ok(Table { entries });
     }
 
-    fn class_attributes(&mut self) -> Result<Table, String> {
+    fn class_attributes(&mut self) -> Result<Table, ParseError> {
         self.next_token();
 
         let mut entries = Vec::new();
@@ -909,7 +929,7 @@ impl<'a> Parser<'a> {
         return Ok(Table { entries });
     }
 
-    fn logical_or_expression(&mut self) -> Result<LogicalOrExpression, String> {
+    fn logical_or_expression(&mut self) -> Result<LogicalOrExpression, ParseError> {
         let left = self.logical_and_expression()?;
         let mut right = Vec::new();
 
@@ -921,7 +941,7 @@ impl<'a> Parser<'a> {
         return Ok(LogicalOrExpression { left, right });
     }
 
-    fn logical_and_expression(&mut self) -> Result<LogicalAndExpression, String> {
+    fn logical_and_expression(&mut self) -> Result<LogicalAndExpression, ParseError> {
         let left = self.bitwise_or_expression()?;
         let mut right = Vec::new();
 
@@ -933,7 +953,7 @@ impl<'a> Parser<'a> {
         return Ok(LogicalAndExpression { left, right });
     }
 
-    fn bitwise_or_expression(&mut self) -> Result<BitwiseOrExpression, String> {
+    fn bitwise_or_expression(&mut self) -> Result<BitwiseOrExpression, ParseError> {
         let left = self.bitwise_xor_expression()?;
         let mut right = Vec::new();
 
@@ -945,7 +965,7 @@ impl<'a> Parser<'a> {
         return Ok(BitwiseOrExpression { left, right });
     }
 
-    fn bitwise_xor_expression(&mut self) -> Result<BitwiseXorExpression, String> {
+    fn bitwise_xor_expression(&mut self) -> Result<BitwiseXorExpression, ParseError> {
         let left = self.bitwise_and_expression()?;
         let mut right = Vec::new();
 
@@ -957,7 +977,7 @@ impl<'a> Parser<'a> {
         return Ok(BitwiseXorExpression { left, right });
     }
 
-    fn bitwise_and_expression(&mut self) -> Result<BitwiseAndExpression, String> {
+    fn bitwise_and_expression(&mut self) -> Result<BitwiseAndExpression, ParseError> {
         let left = self.equal_expression()?;
         let mut right = Vec::new();
 
@@ -969,7 +989,7 @@ impl<'a> Parser<'a> {
         return Ok(BitwiseAndExpression { left, right });
     }
 
-    fn equal_expression(&mut self) -> Result<EqualExpression, String> {
+    fn equal_expression(&mut self) -> Result<EqualExpression, ParseError> {
         let left = self.compare_expression()?;
         let mut slices = Vec::new();
 
@@ -989,7 +1009,7 @@ impl<'a> Parser<'a> {
         return Ok(EqualExpression { left, slices });
     }
 
-    fn compare_expression(&mut self) -> Result<CompareExpression, String> {
+    fn compare_expression(&mut self) -> Result<CompareExpression, ParseError> {
         let left = self.shift_expression()?;
         let mut slices = Vec::new();
 
@@ -1010,7 +1030,7 @@ impl<'a> Parser<'a> {
         return Ok(CompareExpression { left, slices });
     }
 
-    fn shift_expression(&mut self) -> Result<ShiftExpression, String> {
+    fn shift_expression(&mut self) -> Result<ShiftExpression, ParseError> {
         let left = self.plus_expression()?;
         let mut slices = Vec::new();
 
@@ -1030,7 +1050,7 @@ impl<'a> Parser<'a> {
         return Ok(ShiftExpression { left, slices });
     }
 
-    fn plus_expression(&mut self) -> Result<PlusExpression, String> {
+    fn plus_expression(&mut self) -> Result<PlusExpression, ParseError> {
         let left = self.multiply_expression()?;
         let mut slices = Vec::new();
 
@@ -1050,7 +1070,7 @@ impl<'a> Parser<'a> {
         return Ok(PlusExpression { left, slices });
     }
 
-    fn multiply_expression(&mut self) -> Result<MultiplyExpression, String> {
+    fn multiply_expression(&mut self) -> Result<MultiplyExpression, ParseError> {
         let left = self.prefixed_expression()?;
         let mut slices = Vec::new();
 
@@ -1070,7 +1090,7 @@ impl<'a> Parser<'a> {
         return Ok(MultiplyExpression { left, slices });
     }
 
-    fn prefixed_expression(&mut self) -> Result<PrefixedExpression, String> {
+    fn prefixed_expression(&mut self) -> Result<PrefixedExpression, ParseError> {
         let factor = self.factor()?;
         let mut expr_types = Vec::new();
 
@@ -1107,7 +1127,7 @@ impl<'a> Parser<'a> {
         return Ok(PrefixedExpression { factor, expr_types });
     }
 
-    fn function_call_args(&mut self) -> Result<FunctionCallArgs, String> {
+    fn function_call_args(&mut self) -> Result<FunctionCallArgs, ParseError> {
         self.expect(TokenType::LeftParen)?;
         let mut expressions = Vec::new();
         while self.current_token_type() != TokenType::RightParen {
@@ -1156,7 +1176,7 @@ impl<'a> Parser<'a> {
         return Ok(FunctionCallArgs { args: expressions, post_call_init });
     }
 
-    fn comma_expression(&mut self) -> Result<CommaExpression, String> {
+    fn comma_expression(&mut self) -> Result<CommaExpression, ParseError> {
         let mut expressions = vec![self.expression()?];
         while self.current_token_type() == TokenType::Comma {
             self.next_token();
@@ -1166,7 +1186,7 @@ impl<'a> Parser<'a> {
         return Ok(CommaExpression { expressions });
     }
 
-    fn unary_op(&mut self, operator: TokenType) -> Result<UnaryOp, String> {
+    fn unary_op(&mut self, operator: TokenType) -> Result<UnaryOp, ParseError> {
         /*match self.current_token_type() {
             TokenType::Minus | TokenType::BitwiseNot | TokenType::LogicalNot | TokenType::Typeof
             | TokenType::Resume | TokenType::Clone | TokenType::PlusPlus | TokenType::MinusMinus => {
