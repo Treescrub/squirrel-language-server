@@ -18,13 +18,20 @@ impl DocumentManager {
         self.files.insert(uri.to_string(), text.to_string());
     }
 
-    pub fn edit_file(&mut self, text: &str, uri: &Url, range: LspRange) {
-        let start_index = self.pos_to_index(uri, range.start);
-        let end_index = self.pos_to_index(uri, range.end);
+    pub fn edit_file(&mut self, text: &str, uri: &Url, range: Option<LspRange>) {
+        if range.is_none() {
+            self.files.insert(uri.to_string(), text.to_string());
+            return;
+        }
+
+        let range = range.unwrap();
+
+        let start_index = self.pos_to_byte_index(uri, range.start);
+        let end_index = self.pos_to_byte_index(uri, range.end);
 
         if self.files.contains_key(&uri.to_string()) {
             let mut contents = self.files[&uri.to_string()].clone();
-            contents.replace_range(start_index..end_index, text);
+            contents.replace_range(start_index..end_index, text); // replace_range uses byte indices instead of codepoint indices
             self.files.insert(uri.to_string(), contents);
         }
     }
@@ -45,14 +52,15 @@ impl DocumentManager {
         return Some(self.files[&uri.to_string()].as_str());
     }
 
-    fn pos_to_index(&self, uri: &Url, position: Position) -> usize {
+    // Returns a byte index because replace_range uses byte indices, not codepoint indices
+    fn pos_to_byte_index(&self, uri: &Url, position: Position) -> usize {
         if !self.files.contains_key(&uri.to_string()) {
             return 0;
         }
 
         let target_line = position.line;
         let target_column = position.character;
-        let mut char_index: usize = 0;
+        let mut byte_index: usize = 0;
         let mut line: u32 = 0;
         let mut column: u32 = 0;
 
@@ -60,17 +68,17 @@ impl DocumentManager {
             if char == '\n' {
                 line += 1;
                 column = 0;
-                char_index += 1;
+                byte_index += char.len_utf8();
                 continue;
             }
             if line == target_line && column == target_column {
-                return char_index;
+                return byte_index;
             }
 
-            char_index += 1;
+            byte_index += char.len_utf8();
             column += 1;
         }
 
-        return char_index;
+        return byte_index;
     }
 }
