@@ -26,7 +26,102 @@ pub trait SimpleVisitor {
                 self.visit_statement(*loop_body);
                 self.visit_comma_expr(condition);
             }
-            _ => {todo!()}
+            Statement::For(init, condition, post, body) => {
+                if let Some(init) = init {
+                    self.visit_for_init(init);
+                }
+
+                if let Some(condition) = condition {
+                    self.visit_comma_expr(condition);
+                }
+
+                if let Some(post) = post {
+                    self.visit_comma_expr(post);
+                }
+
+                self.visit_statement(*body);
+            },
+            Statement::ForEach(value, key, container, body) => {
+                self.visit_identifier(value);
+                
+                if let Some(key) = key {
+                    self.visit_identifier(key);
+                }
+
+                self.visit_expression(container);
+                self.visit_statement(*body);
+            },
+            Statement::Switch(value, cases, default) => {
+                self.visit_comma_expr(value);
+                
+                for case in cases {
+                    self.visit_expression(case.condition);
+                    self.visit_statements(case.body);
+                }
+
+                if let Some(default) = default {
+                    self.visit_statements(default);
+                }
+            },
+            Statement::LocalDeclare(local_declare) => {
+                self.visit_local_declare(local_declare);
+            },
+            Statement::Return(value) => {
+                if let Some(value) = value {
+                    self.visit_comma_expr(value);
+                }
+            },
+            Statement::Yield(value) => {
+                if let Some(value) = value {
+                    self.visit_comma_expr(value);
+                }
+            },
+            Statement::Break => {},
+            Statement::Continue => {},
+            Statement::Function(func_identifier, env, params, body) => {
+                self.visit_func_identifier(func_identifier);
+
+                if let Some(env) = env {
+                    self.visit_expression(env);
+                }
+
+                self.visit_func_params(params);
+                self.visit_statement(*body);
+            },
+            Statement::Class(name, class_expr) => {
+                self.visit_prefixed_exp(name);
+
+                self.visit_class_expr(class_expr);
+            },
+            Statement::Enum(name, values) => {
+                self.visit_identifier(name);
+
+                for entry in values.values {
+                    self.visit_identifier(entry.key);
+
+                    if let Some(value) = entry.value {
+                        self.visit_scalar(value);
+                    }
+                }
+            },
+            Statement::StatementBlock(statements) => {
+                self.visit_statements(statements);
+            },
+            Statement::TryCatch(try_body, exception_name, catch_body) => {
+                self.visit_statement(*try_body);
+                self.visit_identifier(exception_name);
+                self.visit_statement(*catch_body);
+            },
+            Statement::Throw(exception) => {
+                self.visit_comma_expr(exception);
+            },
+            Statement::Const(name, value) => {
+                self.visit_identifier(name);
+                self.visit_scalar(value);
+            },
+            Statement::CommaExpression(comma_expr) => {
+                self.visit_comma_expr(comma_expr);
+            },
         }
     }
     fn visit_local_declare(&self, local_declare: LocalDeclare) {
@@ -65,6 +160,11 @@ pub trait SimpleVisitor {
     fn visit_unary_op(&self, unary_op: UnaryOp) {
         self.visit_prefixed_exp(unary_op.expression);
     }
+    fn visit_func_identifier(&self, func_identifier: FunctionIdentifier) {
+        for identifier in func_identifier.identifiers {
+            self.visit_identifier(identifier);
+        }
+    }
     fn visit_func_params(&self, params: FunctionParams) {
         for param in params.params {
             self.visit_func_param(param);
@@ -78,6 +178,20 @@ pub trait SimpleVisitor {
                 self.visit_expression(default_val);
             },
             FunctionParam::VarParams => {},
+        }
+    }
+    fn visit_post_call_init(&self, post_call_init: PostCallInitialize) {
+        for entry in post_call_init.entries {
+            match entry {
+                PostCallInitializeEntry::ArrayStyle(key, value) => {
+                    self.visit_comma_expr(key);
+                    self.visit_expression(value);
+                },
+                PostCallInitializeEntry::TableStyle(key, value) => {
+                    self.visit_identifier(key);
+                    self.visit_expression(value);
+                },
+            }
         }
     }
     fn visit_table(&self, table: Table) {
@@ -227,7 +341,15 @@ pub trait SimpleVisitor {
                 PrefixedExpressionType::ArrayStyleAccess(expression) => self.visit_expression(expression),
                 PrefixedExpressionType::PostIncrement => {},
                 PrefixedExpressionType::PostDecrement => {},
-                PrefixedExpressionType::FunctionCall(_) => todo!(),
+                PrefixedExpressionType::FunctionCall(call_args) => {
+                    for arg in call_args.args {
+                        self.visit_expression(arg);
+                    }
+
+                    if let Some(post_call_init) = call_args.post_call_init {
+                        self.visit_post_call_init(post_call_init);
+                    }
+                },
             }
         }
     }
@@ -262,7 +384,102 @@ pub trait SimpleVisitorMut {
                 self.visit_statement(*loop_body);
                 self.visit_comma_expr(condition);
             }
-            _ => {todo!()}
+            Statement::For(init, condition, post, body) => {
+                if let Some(init) = init {
+                    self.visit_for_init(init);
+                }
+
+                if let Some(condition) = condition {
+                    self.visit_comma_expr(condition);
+                }
+
+                if let Some(post) = post {
+                    self.visit_comma_expr(post);
+                }
+
+                self.visit_statement(*body);
+            },
+            Statement::ForEach(value, key, container, body) => {
+                self.visit_identifier(value);
+                
+                if let Some(key) = key {
+                    self.visit_identifier(key);
+                }
+
+                self.visit_expression(container);
+                self.visit_statement(*body);
+            },
+            Statement::Switch(value, cases, default) => {
+                self.visit_comma_expr(value);
+                
+                for case in cases {
+                    self.visit_expression(case.condition);
+                    self.visit_statements(case.body);
+                }
+
+                if let Some(default) = default {
+                    self.visit_statements(default);
+                }
+            },
+            Statement::LocalDeclare(local_declare) => {
+                self.visit_local_declare(local_declare);
+            },
+            Statement::Return(value) => {
+                if let Some(value) = value {
+                    self.visit_comma_expr(value);
+                }
+            },
+            Statement::Yield(value) => {
+                if let Some(value) = value {
+                    self.visit_comma_expr(value);
+                }
+            },
+            Statement::Break => {},
+            Statement::Continue => {},
+            Statement::Function(func_identifier, env, params, body) => {
+                self.visit_func_identifier(func_identifier);
+
+                if let Some(env) = env {
+                    self.visit_expression(env);
+                }
+
+                self.visit_func_params(params);
+                self.visit_statement(*body);
+            },
+            Statement::Class(name, class_expr) => {
+                self.visit_prefixed_exp(name);
+
+                self.visit_class_expr(class_expr);
+            },
+            Statement::Enum(name, values) => {
+                self.visit_identifier(name);
+
+                for entry in values.values {
+                    self.visit_identifier(entry.key);
+
+                    if let Some(value) = entry.value {
+                        self.visit_scalar(value);
+                    }
+                }
+            },
+            Statement::StatementBlock(statements) => {
+                self.visit_statements(statements);
+            },
+            Statement::TryCatch(try_body, exception_name, catch_body) => {
+                self.visit_statement(*try_body);
+                self.visit_identifier(exception_name);
+                self.visit_statement(*catch_body);
+            },
+            Statement::Throw(exception) => {
+                self.visit_comma_expr(exception);
+            },
+            Statement::Const(name, value) => {
+                self.visit_identifier(name);
+                self.visit_scalar(value);
+            },
+            Statement::CommaExpression(comma_expr) => {
+                self.visit_comma_expr(comma_expr);
+            },
         }
     }
     fn visit_local_declare(&mut self, local_declare: LocalDeclare) {
@@ -301,6 +518,11 @@ pub trait SimpleVisitorMut {
     fn visit_unary_op(&mut self, unary_op: UnaryOp) {
         self.visit_prefixed_exp(unary_op.expression);
     }
+    fn visit_func_identifier(&mut self, func_identifier: FunctionIdentifier) {
+        for identifier in func_identifier.identifiers {
+            self.visit_identifier(identifier);
+        }
+    }
     fn visit_func_params(&mut self, params: FunctionParams) {
         for param in params.params {
             self.visit_func_param(param);
@@ -314,6 +536,20 @@ pub trait SimpleVisitorMut {
                 self.visit_expression(default_val);
             },
             FunctionParam::VarParams => {},
+        }
+    }
+    fn visit_post_call_init(&mut self, post_call_init: PostCallInitialize) {
+        for entry in post_call_init.entries {
+            match entry {
+                PostCallInitializeEntry::ArrayStyle(key, value) => {
+                    self.visit_comma_expr(key);
+                    self.visit_expression(value);
+                },
+                PostCallInitializeEntry::TableStyle(key, value) => {
+                    self.visit_identifier(key);
+                    self.visit_expression(value);
+                },
+            }
         }
     }
     fn visit_table(&mut self, table: Table) {
@@ -463,7 +699,15 @@ pub trait SimpleVisitorMut {
                 PrefixedExpressionType::ArrayStyleAccess(expression) => self.visit_expression(expression),
                 PrefixedExpressionType::PostIncrement => {},
                 PrefixedExpressionType::PostDecrement => {},
-                PrefixedExpressionType::FunctionCall(_) => todo!(),
+                PrefixedExpressionType::FunctionCall(call_args) => {
+                    for arg in call_args.args {
+                        self.visit_expression(arg);
+                    }
+
+                    if let Some(post_call_init) = call_args.post_call_init {
+                        self.visit_post_call_init(post_call_init);
+                    }
+                },
             }
         }
     }
