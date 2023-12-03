@@ -10,6 +10,9 @@ pub trait SimpleVisitor {
         }
     }
     fn visit_statement(&self, statement: Statement) {
+        self.default_visit_statement(statement);
+    }
+    fn default_visit_statement(&self, statement: Statement) {
         match statement {
             Statement::If(condition, if_block, else_block) => {
                 self.visit_comma_expr(condition);
@@ -368,6 +371,9 @@ pub trait SimpleVisitorMut {
         }
     }
     fn visit_statement(&mut self, statement: Statement) {
+        self.default_visit_statement(statement);
+    }
+    fn default_visit_statement(&mut self, statement: Statement) {
         match statement {
             Statement::If(condition, if_block, else_block) => {
                 self.visit_comma_expr(condition);
