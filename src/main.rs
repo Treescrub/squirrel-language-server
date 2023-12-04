@@ -13,7 +13,8 @@ use tokio::sync::Mutex;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
-use visitors::{PrettyPrinter, SimpleVisitorMut};
+use visitors::SimpleVisitorMut;
+use visitors::pretty_printer::PrettyPrinter;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 
