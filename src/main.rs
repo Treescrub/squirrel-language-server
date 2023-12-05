@@ -47,6 +47,23 @@ impl Backend {
             }
         }
     }
+
+    fn build_completion_items() -> Vec<CompletionItem> {
+        let keywords = vec!["while", "do", "if", "else", "break", "continue", "return", "null", "function", "local", "for", "foreach", 
+                "in", "typeof", "base", "delete", "try", "catch", "throw", "clone", "yield", "resume", "switch", "case", "default", "this", "class",
+                "extends", "constructor", "instanceof", "true", "false", "static", "enum", "const", "__LINE__", "__FILE__", "rawcall"];
+        let mut items = Vec::new();
+
+        for keyword in keywords {
+            items.push(CompletionItem {
+                label: String::from(keyword),
+                kind: Some(CompletionItemKind::KEYWORD),
+                ..CompletionItem::default()
+            });
+        }
+
+        return items;
+    }
 }
 
 #[derive(Debug)]
@@ -203,10 +220,7 @@ impl LanguageServer for Backend {
     }
 
     async fn completion(&self, _: CompletionParams) -> Result<Option<CompletionResponse>> {
-        Ok(Some(CompletionResponse::Array(vec![
-            CompletionItem::new_simple("Hello".to_string(), "Some detail".to_string()),
-            CompletionItem::new_simple("Bye".to_string(), "More detail".to_string()),
-        ])))
+        Ok(Some(CompletionResponse::Array(Self::build_completion_items())))
     }
 }
 
