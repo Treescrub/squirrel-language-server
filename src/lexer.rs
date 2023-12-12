@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{str::Chars, iter::Peekable, collections::HashMap, fmt::Display};
+use std::{str::Chars, collections::HashMap, fmt::Display};
 
 use tower_lsp::lsp_types::Position;
 
@@ -289,7 +289,7 @@ impl TokenRange {
 }
 
 pub struct Lexer<'a> {
-    iter: Peekable<Chars<'a>>,
+    iter: Chars<'a>,
     line: u32,
     column: u32,
     token_start_location: TokenLocation,
@@ -302,7 +302,7 @@ pub struct Lexer<'a> {
 impl<'a,'b> Lexer<'b> {
     pub fn new(data: &'a str) -> Self where 'a: 'b {
         Self {
-            iter: data.chars().peekable(),
+            iter: data.chars(),
             line: 1,
             column: 0,
             token_start_location: TokenLocation::new(),
@@ -420,15 +420,15 @@ impl<'a,'b> Lexer<'b> {
     }
 
     fn is_digit(char: char) -> bool {
-        return char.is_ascii_digit();
+        return char.is_digit(10);
     }
 
     fn is_octal(char: char) -> bool {
-        return ('0'..='7').contains(&char);
+        return char.is_digit(8);
     }
 
     fn is_hex(char: char) -> bool {
-        return char.is_ascii_hexdigit();
+        return char.is_digit(16);
     }
 
     fn is_exponent(char: char) -> bool {
