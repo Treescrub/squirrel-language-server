@@ -197,14 +197,10 @@ impl LanguageServer for Backend {
             .await;*/
     }
 
-    async fn did_save(&self, params: DidSaveTextDocumentParams) {
+    async fn did_save(&self, _params: DidSaveTextDocumentParams) {
         self.client
             .log_message(MessageType::INFO, "file saved!")
             .await;
-
-        let state = self.state.lock().await;
-
-        self.client.log_message(MessageType::INFO, state.doc_manager.get(&params.text_document.uri).unwrap()).await;
     }
 
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
