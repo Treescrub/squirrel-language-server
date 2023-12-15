@@ -5,6 +5,7 @@ mod document_manager;
 mod parser;
 mod ast;
 mod visitors;
+mod source_info;
 
 use document_manager::DocumentManager;
 use parser::ParseError;

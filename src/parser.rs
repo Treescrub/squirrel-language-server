@@ -2,14 +2,15 @@ use std::fmt::Display;
 
 use crate::ast::*;
 use crate::lexer::*;
+use crate::source_info::SourceRange;
 
 pub struct ParseError {
     pub message: String,
-    pub range: TokenRange,
+    pub range: SourceRange,
 }
 
 impl ParseError {
-    pub fn new(message: String, range: TokenRange) -> Self {
+    pub fn new(message: String, range: SourceRange) -> Self {
         Self {
             message,
             range,
