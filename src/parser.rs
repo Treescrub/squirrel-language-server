@@ -111,7 +111,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        return Ok(Script { statements: Statements { statements } })
+        return Ok(Script::new(statements))
     }
 
     fn optional_semicolon(&mut self) -> Result<(), ParseError> {
@@ -309,7 +309,7 @@ impl<'a> Parser<'a> {
 
             let statements = self.statements()?;
 
-            switch_cases.push(SwitchCase { condition: expression, body: statements });
+            switch_cases.push(SwitchCase::new(expression, statements));
         }
 
         let mut default = None;
@@ -345,7 +345,7 @@ impl<'a> Parser<'a> {
             bind_env = Some(env_expression);
         }
 
-        let function_identifier = FunctionIdentifier { identifiers };
+        let function_identifier = FunctionIdentifier::new(identifiers);
         let params = self.function_params()?;
         let body = Box::new(self.statement()?);
 
@@ -376,7 +376,7 @@ impl<'a> Parser<'a> {
                 entry_value = Some(self.scalar()?);
             }
 
-            entries.push(EnumEntry { key: entry_name, value: entry_value });
+            entries.push(EnumEntry::new(entry_name, entry_value));
 
             if self.current_token_type() == TokenType::Comma {
                 self.next_token();
@@ -384,7 +384,7 @@ impl<'a> Parser<'a> {
         }
         self.next_token();
 
-        return Ok(Statement::Enum(name, EnumValues { values: entries }));
+        return Ok(Statement::Enum(name, EnumValues::new(entries)));
     }
 
     fn statement_block(&mut self) -> Result<Statement, ParseError> {
@@ -443,7 +443,7 @@ impl<'a> Parser<'a> {
 
         self.expect(TokenType::RightParen)?;
 
-        return Ok(FunctionParams { params });
+        return Ok(FunctionParams::new(params));
     }
 
     fn local_declare(&mut self) -> Result<LocalDeclare, ParseError> {
@@ -488,7 +488,7 @@ impl<'a> Parser<'a> {
             expression = Some(self.expression()?);
         }
 
-        return Ok(AssignExpression { identifier, value: expression });
+        return Ok(AssignExpression::new(identifier, expression));
     }
 
     fn const_statement(&mut self) -> Result<Statement, ParseError> {
@@ -763,7 +763,7 @@ impl<'a> Parser<'a> {
         }
         self.next_token();
 
-        return Ok(Table { entries });
+        return Ok(Table::new(entries));
     }
 
     fn statements(&mut self) -> Result<Statements, ParseError> {
@@ -776,7 +776,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        return Ok(Statements {statements})
+        return Ok(Statements::new(statements))
     }
 
     fn expression(&mut self) -> Result<Expression, ParseError> {
@@ -819,7 +819,7 @@ impl<'a> Parser<'a> {
             _ => {}
         }
 
-        return Ok(Expression { logical_or, expr_type });
+        return Ok(Expression::new(logical_or, expr_type));
     }
 
     fn function_expression(&mut self) -> Result<Factor, ParseError> {
@@ -886,7 +886,7 @@ impl<'a> Parser<'a> {
         
         let body = self.class_table()?;
 
-        return Ok(ClassExpression { base_class, attributes, body });
+        return Ok(ClassExpression::new(base_class, attributes, body));
     }
 
     fn class_table(&mut self) -> Result<Table, ParseError> {
@@ -910,7 +910,7 @@ impl<'a> Parser<'a> {
         }
         self.next_token();
 
-        return Ok(Table { entries });
+        return Ok(Table::new(entries));
     }
 
     fn class_attributes(&mut self) -> Result<Table, ParseError> {
@@ -927,7 +927,7 @@ impl<'a> Parser<'a> {
         }
         self.next_token();
 
-        return Ok(Table { entries });
+        return Ok(Table::new(entries));
     }
 
     fn logical_or_expression(&mut self) -> Result<LogicalOrExpression, ParseError> {
@@ -939,7 +939,7 @@ impl<'a> Parser<'a> {
             right.push(Box::new(self.logical_or_expression()?));
         }
 
-        return Ok(LogicalOrExpression { left, right });
+        return Ok(LogicalOrExpression::new(left, right));
     }
 
     fn logical_and_expression(&mut self) -> Result<LogicalAndExpression, ParseError> {
@@ -951,7 +951,7 @@ impl<'a> Parser<'a> {
             right.push(Box::new(self.logical_and_expression()?));
         }
 
-        return Ok(LogicalAndExpression { left, right });
+        return Ok(LogicalAndExpression::new(left, right));
     }
 
     fn bitwise_or_expression(&mut self) -> Result<BitwiseOrExpression, ParseError> {
@@ -963,7 +963,7 @@ impl<'a> Parser<'a> {
             right.push(self.bitwise_xor_expression()?);
         }
         
-        return Ok(BitwiseOrExpression { left, right });
+        return Ok(BitwiseOrExpression::new(left, right));
     }
 
     fn bitwise_xor_expression(&mut self) -> Result<BitwiseXorExpression, ParseError> {
@@ -975,7 +975,7 @@ impl<'a> Parser<'a> {
             right.push(self.bitwise_and_expression()?);
         }
 
-        return Ok(BitwiseXorExpression { left, right });
+        return Ok(BitwiseXorExpression::new(left, right));
     }
 
     fn bitwise_and_expression(&mut self) -> Result<BitwiseAndExpression, ParseError> {
@@ -987,7 +987,7 @@ impl<'a> Parser<'a> {
             right.push(self.equal_expression()?);
         }
         
-        return Ok(BitwiseAndExpression { left, right });
+        return Ok(BitwiseAndExpression::new(left, right));
     }
 
     fn equal_expression(&mut self) -> Result<EqualExpression, ParseError> {
@@ -1007,7 +1007,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        return Ok(EqualExpression { left, slices });
+        return Ok(EqualExpression::new(left, slices));
     }
 
     fn compare_expression(&mut self) -> Result<CompareExpression, ParseError> {
@@ -1028,7 +1028,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        return Ok(CompareExpression { left, slices });
+        return Ok(CompareExpression::new(left, slices));
     }
 
     fn shift_expression(&mut self) -> Result<ShiftExpression, ParseError> {
@@ -1048,7 +1048,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        return Ok(ShiftExpression { left, slices });
+        return Ok(ShiftExpression::new(left, slices));
     }
 
     fn plus_expression(&mut self) -> Result<PlusExpression, ParseError> {
@@ -1068,7 +1068,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        return Ok(PlusExpression { left, slices });
+        return Ok(PlusExpression::new(left, slices));
     }
 
     fn multiply_expression(&mut self) -> Result<MultiplyExpression, ParseError> {
@@ -1088,7 +1088,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        return Ok(MultiplyExpression { left, slices });
+        return Ok(MultiplyExpression::new(left, slices));
     }
 
     fn prefixed_expression(&mut self) -> Result<PrefixedExpression, ParseError> {
@@ -1125,7 +1125,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        return Ok(PrefixedExpression { factor, expr_types });
+        return Ok(PrefixedExpression::new(factor, expr_types));
     }
 
     fn function_call_args(&mut self) -> Result<FunctionCallArgs, ParseError> {
@@ -1171,10 +1171,10 @@ impl<'a> Parser<'a> {
                 }
             }
             self.next_token();
-            post_call_init = Some(PostCallInitialize { entries });
+            post_call_init = Some(PostCallInitialize::new(entries));
         }
 
-        return Ok(FunctionCallArgs { args: expressions, post_call_init });
+        return Ok(FunctionCallArgs::new(expressions, post_call_init));
     }
 
     fn comma_expression(&mut self) -> Result<CommaExpression, ParseError> {
@@ -1184,7 +1184,7 @@ impl<'a> Parser<'a> {
             expressions.push(self.expression()?);
         }
 
-        return Ok(CommaExpression { expressions });
+        return Ok(CommaExpression::new(expressions));
     }
 
     fn unary_op(&mut self, operator: TokenType) -> Result<UnaryOp, ParseError> {
@@ -1200,6 +1200,6 @@ impl<'a> Parser<'a> {
         // self.next_token();
         let expression = self.prefixed_expression()?;
 
-        return Ok(UnaryOp { operator, expression });
+        return Ok(UnaryOp::new(operator, expression));
     }
 }

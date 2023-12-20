@@ -4,8 +4,24 @@ pub struct Script {
     pub statements: Statements,
 }
 
+impl Script {
+    pub fn new(statements: Vec<Statement>) -> Self {
+        Self {
+            statements: Statements::new(statements),
+        }
+    }
+}
+
 pub struct Statements {
     pub statements: Vec<Statement>,
+}
+
+impl Statements {
+    pub fn new(statements: Vec<Statement>) -> Self {
+        Self {
+            statements,
+        }
+    }
 }
 
 pub enum Statement {
@@ -34,9 +50,26 @@ pub struct EnumValues {
     pub values: Vec<EnumEntry>,
 }
 
+impl EnumValues {
+    pub fn new(values: Vec<EnumEntry>) -> Self {
+        Self {
+            values,
+        }
+    }
+}
+
 pub struct EnumEntry {
     pub key: Identifier,
     pub value: Option<Scalar>,
+}
+
+impl EnumEntry {
+    pub fn new(key: Identifier, value: Option<Scalar>) -> Self {
+        Self {
+            key,
+            value,
+        }
+    }
 }
 
 pub enum Scalar {
@@ -74,8 +107,26 @@ pub struct ClassExpression {
     pub body: Table,
 }
 
+impl ClassExpression {
+    pub fn new(base_class: Option<Expression>, attributes: Option<Table>, body: Table) -> Self {
+        Self {
+            base_class,
+            attributes,
+            body,
+        }
+    }
+}
+
 pub struct Table {
     pub entries: Vec<TableEntry>,
+}
+
+impl Table {
+    pub fn new(entries: Vec<TableEntry>) -> Self {
+        Self {
+            entries,
+        }
+    }
 }
 
 pub enum TableEntry {
@@ -92,12 +143,37 @@ pub struct UnaryOp {
     pub expression: PrefixedExpression,
 }
 
+impl UnaryOp {
+    pub fn new(operator: TokenType, expression: PrefixedExpression) -> Self {
+        Self {
+            operator,
+            expression,
+        }
+    }
+}
+
 pub struct FunctionIdentifier {
     pub identifiers: Vec<Identifier>,
 }
 
+impl FunctionIdentifier {
+    pub fn new(identifiers: Vec<Identifier>) -> Self {
+        Self {
+            identifiers,
+        }
+    }
+}
+
 pub struct FunctionParams {
     pub params: Vec<FunctionParam>,
+}
+
+impl FunctionParams {
+    pub fn new(params: Vec<FunctionParam>) -> Self {
+        Self {
+            params,
+        }
+    }
 }
 
 pub enum FunctionParam {
@@ -111,8 +187,25 @@ pub struct FunctionCallArgs {
     pub post_call_init: Option<PostCallInitialize>,
 }
 
+impl FunctionCallArgs {
+    pub fn new(args: Vec<Expression>, post_call_init: Option<PostCallInitialize>) -> Self {
+        Self {
+            args,
+            post_call_init,
+        }
+    }
+}
+
 pub struct PostCallInitialize {
     pub entries: Vec<PostCallInitializeEntry>,
+}
+
+impl PostCallInitialize {
+    pub fn new(entries: Vec<PostCallInitializeEntry>) -> Self {
+        Self {
+            entries,
+        }
+    }
 }
 
 pub enum PostCallInitializeEntry {
@@ -125,6 +218,15 @@ pub struct SwitchCase {
     pub body: Statements,
 }
 
+impl SwitchCase {
+    pub fn new(condition: Expression, body: Statements) -> Self {
+        Self {
+            condition,
+            body,
+        }
+    }
+}
+
 pub enum LocalDeclare {
     Function(Identifier, Option<Expression>/*bind env*/, FunctionParams, Box<Statement>),
     Assign(Vec<AssignExpression>),
@@ -133,6 +235,15 @@ pub enum LocalDeclare {
 pub struct AssignExpression {
     pub identifier: Identifier,
     pub value: Option<Expression>,
+}
+
+impl AssignExpression {
+    pub fn new(identifier: Identifier, value: Option<Expression>) -> Self {
+        Self {
+            identifier,
+            value,
+        }
+    }
 }
 
 pub enum ForInit {
@@ -144,9 +255,26 @@ pub struct CommaExpression {
     pub expressions: Vec<Expression>,
 }
 
+impl CommaExpression {
+    pub fn new(expressions: Vec<Expression>) -> Self {
+        Self {
+            expressions,
+        }
+    }
+}
+
 pub struct Expression {
     pub logical_or: Box<LogicalOrExpression>,
     pub expr_type: Option<ExpressionType>
+}
+
+impl Expression {
+    pub fn new(logical_or: Box<LogicalOrExpression>, expr_type: Option<ExpressionType>) -> Self {
+        Self {
+            logical_or,
+            expr_type,
+        }
+    }
 }
 
 pub enum ExpressionType {
@@ -178,9 +306,27 @@ pub struct LogicalOrExpression {
     pub right: Vec<Box<LogicalOrExpression>>,
 }
 
+impl LogicalOrExpression {
+    pub fn new(left: LogicalAndExpression, right: Vec<Box<LogicalOrExpression>>) -> Self {
+        Self {
+            left,
+            right,
+        }
+    }
+}
+
 pub struct LogicalAndExpression {
     pub left: BitwiseOrExpression,
     pub right: Vec<Box<LogicalAndExpression>>,
+}
+
+impl LogicalAndExpression {
+    pub fn new(left: BitwiseOrExpression, right: Vec<Box<LogicalAndExpression>>) -> Self {
+        Self {
+            left,
+            right,
+        }
+    }
 }
 
 pub struct BitwiseOrExpression {
@@ -188,9 +334,27 @@ pub struct BitwiseOrExpression {
     pub right: Vec<BitwiseXorExpression>,
 }
 
+impl BitwiseOrExpression {
+    pub fn new(left: BitwiseXorExpression, right: Vec<BitwiseXorExpression>) -> Self {
+        Self {
+            left,
+            right,
+        }
+    }
+}
+
 pub struct BitwiseXorExpression {
     pub left: BitwiseAndExpression,
     pub right: Vec<BitwiseAndExpression>,
+}
+
+impl BitwiseXorExpression {
+    pub fn new(left: BitwiseAndExpression, right: Vec<BitwiseAndExpression>) -> Self {
+        Self {
+            left,
+            right,
+        }
+    }
 }
 
 pub struct BitwiseAndExpression {
@@ -198,9 +362,27 @@ pub struct BitwiseAndExpression {
     pub right: Vec<EqualExpression>,
 }
 
+impl BitwiseAndExpression {
+    pub fn new(left: EqualExpression, right: Vec<EqualExpression>) -> Self {
+        Self {
+            left,
+            right,
+        }
+    }
+}
+
 pub struct EqualExpression {
     pub left: CompareExpression,
     pub slices: Vec<BinaryOpSlice<CompareExpression>>,
+}
+
+impl EqualExpression {
+    pub fn new(left: CompareExpression, slices: Vec<BinaryOpSlice<CompareExpression>>) -> Self {
+        Self {
+            left,
+            slices,
+        }
+    }
 }
 
 pub struct CompareExpression {
@@ -208,9 +390,27 @@ pub struct CompareExpression {
     pub slices: Vec<BinaryOpSlice<ShiftExpression>>,
 }
 
+impl CompareExpression {
+    pub fn new(left: ShiftExpression, slices: Vec<BinaryOpSlice<ShiftExpression>>) -> Self {
+        Self {
+            left,
+            slices,
+        }
+    }
+}
+
 pub struct ShiftExpression {
     pub left: PlusExpression,
     pub slices: Vec<BinaryOpSlice<PlusExpression>>,
+}
+
+impl ShiftExpression {
+    pub fn new(left: PlusExpression, slices: Vec<BinaryOpSlice<PlusExpression>>) -> Self {
+        Self {
+            left,
+            slices,
+        }
+    }
 }
 
 pub struct PlusExpression {
@@ -218,14 +418,41 @@ pub struct PlusExpression {
     pub slices: Vec<BinaryOpSlice<MultiplyExpression>>,
 }
 
+impl PlusExpression {
+    pub fn new(left: MultiplyExpression, slices: Vec<BinaryOpSlice<MultiplyExpression>>) -> Self {
+        Self {
+            left,
+            slices,
+        }
+    }
+}
+
 pub struct MultiplyExpression {
     pub left: PrefixedExpression,
     pub slices: Vec<BinaryOpSlice<PrefixedExpression>>,
 }
 
+impl MultiplyExpression {
+    pub fn new(left: PrefixedExpression, slices: Vec<BinaryOpSlice<PrefixedExpression>>) -> Self {
+        Self {
+            left,
+            slices,
+        }
+    }
+}
+
 pub struct PrefixedExpression {
     pub factor: Factor,
     pub expr_types: Vec<PrefixedExpressionType>,
+}
+
+impl PrefixedExpression {
+    pub fn new(factor: Factor, expr_types: Vec<PrefixedExpressionType>) -> Self {
+        Self {
+            factor,
+            expr_types,
+        }
+    }
 }
 
 pub enum PrefixedExpressionType {
