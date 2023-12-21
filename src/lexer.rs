@@ -1,8 +1,6 @@
 use core::fmt;
 use std::{str::Chars, collections::HashMap, fmt::Display};
 
-use tower_lsp::lsp_types::Position;
-
 use crate::source_info::{SourceLocation, SourceRange};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
