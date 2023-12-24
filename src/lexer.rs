@@ -222,7 +222,7 @@ impl Default for Token {
             nvalue: None,
             fvalue: None,
             svalue: None,
-            range: SourceRange::new(),
+            range: SourceRange::new_empty(),
         }
     }
 }

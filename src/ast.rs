@@ -1,23 +1,43 @@
-use crate::lexer::{TokenType, Token};
+use crate::{lexer::{TokenType, Token}, source_info::{SourceLocation, SourceRange}};
+
+pub struct AstNode<T> {
+    pub range: SourceRange,
+    pub value: Box<T>,
+}
+
+impl<T> AstNode<T> {
+    pub fn new(range: SourceRange, value: T) -> Self {
+        Self {
+            range,
+            value: Box::new(value),
+        }
+    }
+}
 
 pub struct Script {
-    pub statements: Statements,
+    pub statements: AstNode<Statements>,
 }
 
 impl Script {
-    pub fn new(statements: Vec<Statement>) -> Self {
+    pub fn new(statements: Vec<AstNode<Statement>>) -> Self {
+        let mut range = SourceRange::new_empty();
+
+        if !statements.is_empty() {
+            range = SourceRange::new(statements.get(0).unwrap().range.start, statements.get(statements.len() - 1).unwrap().range.end);
+        }
+
         Self {
-            statements: Statements::new(statements),
+            statements: AstNode::new(range, Statements::new(statements)),
         }
     }
 }
 
 pub struct Statements {
-    pub statements: Vec<Statement>,
+    pub statements: Vec<AstNode<Statement>>,
 }
 
 impl Statements {
-    pub fn new(statements: Vec<Statement>) -> Self {
+    pub fn new(statements: Vec<AstNode<Statement>>) -> Self {
         Self {
             statements,
         }
@@ -25,33 +45,33 @@ impl Statements {
 }
 
 pub enum Statement {
-    If(CommaExpression, Box<Statement>, Option<Box<Statement>>),
-    While(CommaExpression, Box<Statement>),
-    DoWhile(Box<Statement>, CommaExpression),
-    For(Option<ForInit>, Option<CommaExpression>, Option<CommaExpression>, Box<Statement>),
-    ForEach(Identifier /* value */, Option<Identifier> /* key */, Expression, Box<Statement>),
-    Switch(CommaExpression, Vec<SwitchCase>, Option<Statements> /* default */),
-    LocalDeclare(LocalDeclare),
-    Return(Option<CommaExpression>),
-    Yield(Option<CommaExpression>),
+    If(AstNode<CommaExpression>, AstNode<Statement>, Option<AstNode<Statement>>),
+    While(AstNode<CommaExpression>, AstNode<Statement>),
+    DoWhile(AstNode<Statement>, AstNode<CommaExpression>),
+    For(Option<AstNode<ForInit>>, Option<AstNode<CommaExpression>>, Option<AstNode<CommaExpression>>, AstNode<Statement>),
+    ForEach(AstNode<Identifier> /* value */, Option<AstNode<Identifier>> /* key */, AstNode<Expression>, AstNode<Statement>),
+    Switch(AstNode<CommaExpression>, Vec<AstNode<SwitchCase>>, Option<AstNode<Statements>> /* default */),
+    LocalDeclare(AstNode<LocalDeclare>),
+    Return(Option<AstNode<CommaExpression>>),
+    Yield(Option<AstNode<CommaExpression>>),
     Break,
     Continue,
-    Function(FunctionIdentifier, Option<Expression>/* static env binding */, FunctionParams, Box<Statement>),
-    Class(PrefixedExpression, ClassExpression),
-    Enum(Identifier, EnumValues),
-    StatementBlock(Statements),
-    TryCatch(Box<Statement>, Identifier, Box<Statement>),
-    Throw(CommaExpression),
-    Const(Identifier, Scalar),
-    CommaExpression(CommaExpression)
+    Function(AstNode<FunctionIdentifier>, Option<AstNode<Expression>>/* static env binding */, AstNode<FunctionParams>, AstNode<Statement>),
+    Class(AstNode<PrefixedExpression>, AstNode<ClassExpression>),
+    Enum(AstNode<Identifier>, AstNode<EnumValues>),
+    StatementBlock(AstNode<Statements>),
+    TryCatch(AstNode<Statement>, AstNode<Identifier>, AstNode<Statement>),
+    Throw(AstNode<CommaExpression>),
+    Const(AstNode<Identifier>, AstNode<Scalar>),
+    CommaExpression(AstNode<CommaExpression>)
 }
 
 pub struct EnumValues {
-    pub values: Vec<EnumEntry>,
+    pub values: Vec<AstNode<EnumEntry>>,
 }
 
 impl EnumValues {
-    pub fn new(values: Vec<EnumEntry>) -> Self {
+    pub fn new(values: Vec<AstNode<EnumEntry>>) -> Self {
         Self {
             values,
         }
@@ -59,12 +79,12 @@ impl EnumValues {
 }
 
 pub struct EnumEntry {
-    pub key: Identifier,
-    pub value: Option<Scalar>,
+    pub key: AstNode<Identifier>,
+    pub value: Option<AstNode<Scalar>>,
 }
 
 impl EnumEntry {
-    pub fn new(key: Identifier, value: Option<Scalar>) -> Self {
+    pub fn new(key: AstNode<Identifier>, value: Option<AstNode<Scalar>>) -> Self {
         Self {
             key,
             value,
@@ -81,34 +101,34 @@ pub enum Scalar {
 }
 
 pub enum Factor {
-    Scalar(Scalar),
+    Scalar(AstNode<Scalar>),
     Base,
-    Identifier(Identifier),
+    Identifier(AstNode<Identifier>),
     Constructor,
     This,
-    DoubleColon(Box<PrefixedExpression>),
+    DoubleColon(AstNode<PrefixedExpression>),
     Null,
-    ArrayInit(Vec<Expression>),
-    TableInit(Table),
-    FunctionExpression(Option<Expression> /* bind env */, FunctionParams, Box<Statement>),
-    LambdaExpression(Option<Expression> /* bind env */, FunctionParams, Expression),
-    ClassExpression(ClassExpression),
-    UnaryOp(Box<UnaryOp>),
-    RawCall(FunctionCallArgs),
-    Delete(Box<PrefixedExpression>),
-    ParenExpression(CommaExpression),
+    ArrayInit(Vec<AstNode<Expression>>),
+    TableInit(AstNode<Table>),
+    FunctionExpression(Option<AstNode<Expression>> /* bind env */, AstNode<FunctionParams>, AstNode<Statement>),
+    LambdaExpression(Option<AstNode<Expression>> /* bind env */, AstNode<FunctionParams>, AstNode<Expression>),
+    ClassExpression(AstNode<ClassExpression>),
+    UnaryOp(AstNode<UnaryOp>),
+    RawCall(AstNode<FunctionCallArgs>),
+    Delete(AstNode<PrefixedExpression>),
+    ParenExpression(AstNode<CommaExpression>),
     LineInfo,
     FileInfo,
 }
 
 pub struct ClassExpression {
-    pub base_class: Option<Expression>,
-    pub attributes: Option<Table>,
-    pub body: Table,
+    pub base_class: Option<AstNode<Expression>>,
+    pub attributes: Option<AstNode<Table>>,
+    pub body: AstNode<Table>,
 }
 
 impl ClassExpression {
-    pub fn new(base_class: Option<Expression>, attributes: Option<Table>, body: Table) -> Self {
+    pub fn new(base_class: Option<AstNode<Expression>>, attributes: Option<AstNode<Table>>, body: AstNode<Table>) -> Self {
         Self {
             base_class,
             attributes,
@@ -118,11 +138,11 @@ impl ClassExpression {
 }
 
 pub struct Table {
-    pub entries: Vec<TableEntry>,
+    pub entries: Vec<AstNode<TableEntry>>,
 }
 
 impl Table {
-    pub fn new(entries: Vec<TableEntry>) -> Self {
+    pub fn new(entries: Vec<AstNode<TableEntry>>) -> Self {
         Self {
             entries,
         }
@@ -130,21 +150,21 @@ impl Table {
 }
 
 pub enum TableEntry {
-    Function(Identifier, FunctionParams, Statement),
-    Constructor(FunctionParams, Statement),
-    DynamicAssign(CommaExpression, Expression),
-    JsonStyle(String, Expression),
-    Simple(Identifier, Expression),
-    Attributes(Table),
+    Function(AstNode<Identifier>, AstNode<FunctionParams>, AstNode<Statement>),
+    Constructor(AstNode<FunctionParams>, AstNode<Statement>),
+    DynamicAssign(AstNode<CommaExpression>, AstNode<Expression>),
+    JsonStyle(String, AstNode<Expression>),
+    Simple(AstNode<Identifier>, AstNode<Expression>),
+    Attributes(AstNode<Table>),
 }
 
 pub struct UnaryOp {
-    pub operator: TokenType,
-    pub expression: PrefixedExpression,
+    pub operator: AstNode<TokenType>,
+    pub expression: AstNode<PrefixedExpression>,
 }
 
 impl UnaryOp {
-    pub fn new(operator: TokenType, expression: PrefixedExpression) -> Self {
+    pub fn new(operator: AstNode<TokenType>, expression: AstNode<PrefixedExpression>) -> Self {
         Self {
             operator,
             expression,
@@ -153,11 +173,11 @@ impl UnaryOp {
 }
 
 pub struct FunctionIdentifier {
-    pub identifiers: Vec<Identifier>,
+    pub identifiers: Vec<AstNode<Identifier>>,
 }
 
 impl FunctionIdentifier {
-    pub fn new(identifiers: Vec<Identifier>) -> Self {
+    pub fn new(identifiers: Vec<AstNode<Identifier>>) -> Self {
         Self {
             identifiers,
         }
@@ -165,11 +185,11 @@ impl FunctionIdentifier {
 }
 
 pub struct FunctionParams {
-    pub params: Vec<FunctionParam>,
+    pub params: Vec<AstNode<FunctionParam>>,
 }
 
 impl FunctionParams {
-    pub fn new(params: Vec<FunctionParam>) -> Self {
+    pub fn new(params: Vec<AstNode<FunctionParam>>) -> Self {
         Self {
             params,
         }
@@ -177,18 +197,18 @@ impl FunctionParams {
 }
 
 pub enum FunctionParam {
-    Normal(Identifier),
-    Default(Identifier, Expression),
+    Normal(AstNode<Identifier>),
+    Default(AstNode<Identifier>, AstNode<Expression>),
     VarParams,
 }
 
 pub struct FunctionCallArgs {
-    pub args: Vec<Expression>,
-    pub post_call_init: Option<PostCallInitialize>,
+    pub args: Vec<AstNode<Expression>>,
+    pub post_call_init: Option<AstNode<PostCallInitialize>>,
 }
 
 impl FunctionCallArgs {
-    pub fn new(args: Vec<Expression>, post_call_init: Option<PostCallInitialize>) -> Self {
+    pub fn new(args: Vec<AstNode<Expression>>, post_call_init: Option<AstNode<PostCallInitialize>>) -> Self {
         Self {
             args,
             post_call_init,
@@ -197,11 +217,11 @@ impl FunctionCallArgs {
 }
 
 pub struct PostCallInitialize {
-    pub entries: Vec<PostCallInitializeEntry>,
+    pub entries: Vec<AstNode<PostCallInitializeEntry>>,
 }
 
 impl PostCallInitialize {
-    pub fn new(entries: Vec<PostCallInitializeEntry>) -> Self {
+    pub fn new(entries: Vec<AstNode<PostCallInitializeEntry>>) -> Self {
         Self {
             entries,
         }
@@ -209,17 +229,17 @@ impl PostCallInitialize {
 }
 
 pub enum PostCallInitializeEntry {
-    ArrayStyle(CommaExpression, Expression),
-    TableStyle(Identifier, Expression),
+    ArrayStyle(AstNode<CommaExpression>, AstNode<Expression>),
+    TableStyle(AstNode<Identifier>, AstNode<Expression>),
 }
 
 pub struct SwitchCase {
-    pub condition: Expression,
-    pub body: Statements,
+    pub condition: AstNode<Expression>,
+    pub body: AstNode<Statements>,
 }
 
 impl SwitchCase {
-    pub fn new(condition: Expression, body: Statements) -> Self {
+    pub fn new(condition: AstNode<Expression>, body: AstNode<Statements>) -> Self {
         Self {
             condition,
             body,
@@ -228,17 +248,17 @@ impl SwitchCase {
 }
 
 pub enum LocalDeclare {
-    Function(Identifier, Option<Expression>/*bind env*/, FunctionParams, Box<Statement>),
-    Assign(Vec<AssignExpression>),
+    Function(AstNode<Identifier>, Option<AstNode<Expression>>/*bind env*/, AstNode<FunctionParams>, AstNode<Statement>),
+    Assign(Vec<AstNode<AssignExpression>>),
 }
 
 pub struct AssignExpression {
-    pub identifier: Identifier,
-    pub value: Option<Expression>,
+    pub identifier: AstNode<Identifier>,
+    pub value: Option<AstNode<Expression>>,
 }
 
 impl AssignExpression {
-    pub fn new(identifier: Identifier, value: Option<Expression>) -> Self {
+    pub fn new(identifier: AstNode<Identifier>, value: Option<AstNode<Expression>>) -> Self {
         Self {
             identifier,
             value,
@@ -247,16 +267,16 @@ impl AssignExpression {
 }
 
 pub enum ForInit {
-    LocalDeclare(LocalDeclare),
-    CommaExpression(CommaExpression),
+    LocalDeclare(AstNode<LocalDeclare>),
+    CommaExpression(AstNode<CommaExpression>),
 }
 
 pub struct CommaExpression {
-    pub expressions: Vec<Expression>,
+    pub expressions: Vec<AstNode<Expression>>,
 }
 
 impl CommaExpression {
-    pub fn new(expressions: Vec<Expression>) -> Self {
+    pub fn new(expressions: Vec<AstNode<Expression>>) -> Self {
         Self {
             expressions,
         }
@@ -264,12 +284,12 @@ impl CommaExpression {
 }
 
 pub struct Expression {
-    pub logical_or: Box<LogicalOrExpression>,
-    pub expr_type: Option<ExpressionType>
+    pub logical_or: AstNode<LogicalOrExpression>,
+    pub expr_type: Option<AstNode<ExpressionType>>
 }
 
 impl Expression {
-    pub fn new(logical_or: Box<LogicalOrExpression>, expr_type: Option<ExpressionType>) -> Self {
+    pub fn new(logical_or: AstNode<LogicalOrExpression>, expr_type: Option<AstNode<ExpressionType>>) -> Self {
         Self {
             logical_or,
             expr_type,
@@ -278,22 +298,22 @@ impl Expression {
 }
 
 pub enum ExpressionType {
-    Newslot(Box<Expression>),
-    Assign(Box<Expression>),
-    MinusEqual(Box<Expression>),
-    PlusEqual(Box<Expression>),
-    MultiplyEqual(Box<Expression>),
-    DivideEqual(Box<Expression>),
-    Ternary(Box<Expression>, Box<Expression>),
+    Newslot(AstNode<Expression>),
+    Assign(AstNode<Expression>),
+    MinusEqual(AstNode<Expression>),
+    PlusEqual(AstNode<Expression>),
+    MultiplyEqual(AstNode<Expression>),
+    DivideEqual(AstNode<Expression>),
+    Ternary(AstNode<Expression>, AstNode<Expression>),
 }
 
 pub struct BinaryOpSlice<T> {
-    pub operator: TokenType,
-    pub right: T,
+    pub operator: AstNode<TokenType>,
+    pub right: AstNode<T>,
 }
 
 impl<T> BinaryOpSlice<T> {
-    pub fn new(operator: TokenType, right: T) -> BinaryOpSlice<T> {
+    pub fn new(operator: AstNode<TokenType>, right: AstNode<T>) -> BinaryOpSlice<T> {
         return BinaryOpSlice {
             operator,
             right,
@@ -302,12 +322,12 @@ impl<T> BinaryOpSlice<T> {
 }
 
 pub struct LogicalOrExpression {
-    pub left: LogicalAndExpression,
-    pub right: Vec<Box<LogicalOrExpression>>,
+    pub left: AstNode<LogicalAndExpression>,
+    pub right: Vec<AstNode<LogicalOrExpression>>,
 }
 
 impl LogicalOrExpression {
-    pub fn new(left: LogicalAndExpression, right: Vec<Box<LogicalOrExpression>>) -> Self {
+    pub fn new(left: AstNode<LogicalAndExpression>, right: Vec<AstNode<LogicalOrExpression>>) -> Self {
         Self {
             left,
             right,
@@ -316,12 +336,12 @@ impl LogicalOrExpression {
 }
 
 pub struct LogicalAndExpression {
-    pub left: BitwiseOrExpression,
-    pub right: Vec<Box<LogicalAndExpression>>,
+    pub left: AstNode<BitwiseOrExpression>,
+    pub right: Vec<AstNode<LogicalAndExpression>>,
 }
 
 impl LogicalAndExpression {
-    pub fn new(left: BitwiseOrExpression, right: Vec<Box<LogicalAndExpression>>) -> Self {
+    pub fn new(left: AstNode<BitwiseOrExpression>, right: Vec<AstNode<LogicalAndExpression>>) -> Self {
         Self {
             left,
             right,
@@ -330,12 +350,12 @@ impl LogicalAndExpression {
 }
 
 pub struct BitwiseOrExpression {
-    pub left: BitwiseXorExpression,
-    pub right: Vec<BitwiseXorExpression>,
+    pub left: AstNode<BitwiseXorExpression>,
+    pub right: Vec<AstNode<BitwiseXorExpression>>,
 }
 
 impl BitwiseOrExpression {
-    pub fn new(left: BitwiseXorExpression, right: Vec<BitwiseXorExpression>) -> Self {
+    pub fn new(left: AstNode<BitwiseXorExpression>, right: Vec<AstNode<BitwiseXorExpression>>) -> Self {
         Self {
             left,
             right,
@@ -344,12 +364,12 @@ impl BitwiseOrExpression {
 }
 
 pub struct BitwiseXorExpression {
-    pub left: BitwiseAndExpression,
-    pub right: Vec<BitwiseAndExpression>,
+    pub left: AstNode<BitwiseAndExpression>,
+    pub right: Vec<AstNode<BitwiseAndExpression>>,
 }
 
 impl BitwiseXorExpression {
-    pub fn new(left: BitwiseAndExpression, right: Vec<BitwiseAndExpression>) -> Self {
+    pub fn new(left: AstNode<BitwiseAndExpression>, right: Vec<AstNode<BitwiseAndExpression>>) -> Self {
         Self {
             left,
             right,
@@ -358,12 +378,12 @@ impl BitwiseXorExpression {
 }
 
 pub struct BitwiseAndExpression {
-    pub left: EqualExpression,
-    pub right: Vec<EqualExpression>,
+    pub left: AstNode<EqualExpression>,
+    pub right: Vec<AstNode<EqualExpression>>,
 }
 
 impl BitwiseAndExpression {
-    pub fn new(left: EqualExpression, right: Vec<EqualExpression>) -> Self {
+    pub fn new(left: AstNode<EqualExpression>, right: Vec<AstNode<EqualExpression>>) -> Self {
         Self {
             left,
             right,
@@ -372,12 +392,12 @@ impl BitwiseAndExpression {
 }
 
 pub struct EqualExpression {
-    pub left: CompareExpression,
-    pub slices: Vec<BinaryOpSlice<CompareExpression>>,
+    pub left: AstNode<CompareExpression>,
+    pub slices: Vec<AstNode<BinaryOpSlice<CompareExpression>>>,
 }
 
 impl EqualExpression {
-    pub fn new(left: CompareExpression, slices: Vec<BinaryOpSlice<CompareExpression>>) -> Self {
+    pub fn new(left: AstNode<CompareExpression>, slices: Vec<AstNode<BinaryOpSlice<CompareExpression>>>) -> Self {
         Self {
             left,
             slices,
@@ -386,12 +406,12 @@ impl EqualExpression {
 }
 
 pub struct CompareExpression {
-    pub left: ShiftExpression,
-    pub slices: Vec<BinaryOpSlice<ShiftExpression>>,
+    pub left: AstNode<ShiftExpression>,
+    pub slices: Vec<AstNode<BinaryOpSlice<ShiftExpression>>>,
 }
 
 impl CompareExpression {
-    pub fn new(left: ShiftExpression, slices: Vec<BinaryOpSlice<ShiftExpression>>) -> Self {
+    pub fn new(left: AstNode<ShiftExpression>, slices: Vec<AstNode<BinaryOpSlice<ShiftExpression>>>) -> Self {
         Self {
             left,
             slices,
@@ -400,12 +420,12 @@ impl CompareExpression {
 }
 
 pub struct ShiftExpression {
-    pub left: PlusExpression,
-    pub slices: Vec<BinaryOpSlice<PlusExpression>>,
+    pub left: AstNode<PlusExpression>,
+    pub slices: Vec<AstNode<BinaryOpSlice<PlusExpression>>>,
 }
 
 impl ShiftExpression {
-    pub fn new(left: PlusExpression, slices: Vec<BinaryOpSlice<PlusExpression>>) -> Self {
+    pub fn new(left: AstNode<PlusExpression>, slices: Vec<AstNode<BinaryOpSlice<PlusExpression>>>) -> Self {
         Self {
             left,
             slices,
@@ -414,12 +434,12 @@ impl ShiftExpression {
 }
 
 pub struct PlusExpression {
-    pub left: MultiplyExpression,
-    pub slices: Vec<BinaryOpSlice<MultiplyExpression>>,
+    pub left: AstNode<MultiplyExpression>,
+    pub slices: Vec<AstNode<BinaryOpSlice<MultiplyExpression>>>,
 }
 
 impl PlusExpression {
-    pub fn new(left: MultiplyExpression, slices: Vec<BinaryOpSlice<MultiplyExpression>>) -> Self {
+    pub fn new(left: AstNode<MultiplyExpression>, slices: Vec<AstNode<BinaryOpSlice<MultiplyExpression>>>) -> Self {
         Self {
             left,
             slices,
@@ -428,12 +448,12 @@ impl PlusExpression {
 }
 
 pub struct MultiplyExpression {
-    pub left: PrefixedExpression,
-    pub slices: Vec<BinaryOpSlice<PrefixedExpression>>,
+    pub left: AstNode<PrefixedExpression>,
+    pub slices: Vec<AstNode<BinaryOpSlice<PrefixedExpression>>>,
 }
 
 impl MultiplyExpression {
-    pub fn new(left: PrefixedExpression, slices: Vec<BinaryOpSlice<PrefixedExpression>>) -> Self {
+    pub fn new(left: AstNode<PrefixedExpression>, slices: Vec<AstNode<BinaryOpSlice<PrefixedExpression>>>) -> Self {
         Self {
             left,
             slices,
@@ -442,12 +462,12 @@ impl MultiplyExpression {
 }
 
 pub struct PrefixedExpression {
-    pub factor: Factor,
-    pub expr_types: Vec<PrefixedExpressionType>,
+    pub factor: AstNode<Factor>,
+    pub expr_types: Vec<AstNode<PrefixedExpressionType>>,
 }
 
 impl PrefixedExpression {
-    pub fn new(factor: Factor, expr_types: Vec<PrefixedExpressionType>) -> Self {
+    pub fn new(factor: AstNode<Factor>, expr_types: Vec<AstNode<PrefixedExpressionType>>) -> Self {
         Self {
             factor,
             expr_types,
@@ -456,11 +476,11 @@ impl PrefixedExpression {
 }
 
 pub enum PrefixedExpressionType {
-    DotAccess(Identifier),
-    ArrayStyleAccess(Expression),
+    DotAccess(AstNode<Identifier>),
+    ArrayStyleAccess(AstNode<Expression>),
     PostIncrement,
     PostDecrement,
-    FunctionCall(FunctionCallArgs),
+    FunctionCall(AstNode<FunctionCallArgs>),
 }
 
 pub struct Identifier {

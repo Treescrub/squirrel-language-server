@@ -37,29 +37,29 @@ impl PrettyPrinter {
 }
 
 impl SimpleVisitorMut for PrettyPrinter {
-    fn visit_script(&mut self, script: Script) {
-        self.print(&format!("SCRIPT: {} statement(s)", script.statements.statements.len()));
+    fn visit_script(&mut self, script: AstNode<Script>) {
+        self.print(&format!("SCRIPT: {} statement(s)", script.value.statements.value.statements.len()));
 
         self.push_level();
-        self.visit_statements(script.statements);
+        self.visit_statements(script.value.statements);
         self.pop_level();
     }
 
-    fn visit_statements(&mut self, statements: Statements) {
+    fn visit_statements(&mut self, statements: AstNode<Statements>) {
         self.print("STATEMENTS");
 
-        for statement in statements.statements {
+        for statement in statements.value.statements {
             self.push_level();
             self.visit_statement(statement);
             self.pop_level();
         }
     }
 
-    fn visit_statement(&mut self, statement: Statement) {
+    fn visit_statement(&mut self, statement: AstNode<Statement>) {
         self.print("STATEMENT");
 
         self.push_level();
-        match statement {
+        match *statement.value {
             Statement::Break => {
                 self.print("BREAK");
             }
@@ -85,9 +85,9 @@ impl SimpleVisitorMut for PrettyPrinter {
 
                 self.push_level();
                 self.visit_comma_expr(condition);
-                self.visit_statement(*if_block);
+                self.visit_statement(if_block);
                 if else_block.is_some() {
-                    self.visit_statement(*else_block.unwrap());
+                    self.visit_statement(else_block.unwrap());
                 }
                 self.pop_level();
             }
@@ -95,7 +95,7 @@ impl SimpleVisitorMut for PrettyPrinter {
                 self.print("COMMA EXPRESSION");
 
                 self.push_level();
-                for expression in comma_expression.expressions {
+                for expression in comma_expression.value.expressions {
                     self.visit_expression(expression);
                 }
                 self.pop_level();
@@ -112,14 +112,14 @@ impl SimpleVisitorMut for PrettyPrinter {
                 self.print("FUNCTION");
 
                 self.push_level();
-                for identifier in identifier.identifiers {
+                for identifier in identifier.value.identifiers {
                     self.visit_identifier(identifier);
                 }
                 if let Some(bind_env) = bind_env {
                     self.visit_expression(bind_env);
                 }
                 self.visit_func_params(params);
-                self.visit_statement(*body);
+                self.visit_statement(body);
                 self.pop_level();
             }
             Statement::While(condition, body) => {
@@ -127,14 +127,14 @@ impl SimpleVisitorMut for PrettyPrinter {
 
                 self.push_level();
                 self.visit_comma_expr(condition);
-                self.visit_statement(*body);
+                self.visit_statement(body);
                 self.pop_level();
             },
             Statement::DoWhile(body, condition) => {
                 self.print("DO WHILE");
 
                 self.push_level();
-                self.visit_statement(*body);
+                self.visit_statement(body);
                 self.visit_comma_expr(condition);
                 self.pop_level();
             },
@@ -151,7 +151,7 @@ impl SimpleVisitorMut for PrettyPrinter {
                 if let Some(post) = post {
                     self.visit_comma_expr(post);
                 }
-                self.visit_statement(*body);
+                self.visit_statement(body);
                 self.pop_level();
             },
             Statement::ForEach(value, key, container, body) => {
@@ -163,7 +163,7 @@ impl SimpleVisitorMut for PrettyPrinter {
                     self.visit_identifier(key);
                 }
                 self.visit_expression(container);
-                self.visit_statement(*body);
+                self.visit_statement(body);
                 self.pop_level();
             },
             Statement::Switch(value, cases, default) => {
@@ -172,8 +172,8 @@ impl SimpleVisitorMut for PrettyPrinter {
                 self.push_level();
                 self.visit_comma_expr(value);
                 for case in cases {
-                    self.visit_expression(case.condition);
-                    self.visit_statements(case.body);
+                    self.visit_expression(case.value.condition);
+                    self.visit_statements(case.value.body);
                 }
                 if let Some(default) = default {
                     self.visit_statements(default);
@@ -210,9 +210,9 @@ impl SimpleVisitorMut for PrettyPrinter {
 
                 self.push_level();
                 self.visit_identifier(identifier);
-                for entry in values.values {
-                    self.visit_identifier(entry.key);
-                    if let Some(value) = entry.value {
+                for entry in values.value.values {
+                    self.visit_identifier(entry.value.key);
+                    if let Some(value) = entry.value.value {
                         self.visit_scalar(value);
                     }
                 }
@@ -222,9 +222,9 @@ impl SimpleVisitorMut for PrettyPrinter {
                 self.print("TRY CATCH");
 
                 self.push_level();
-                self.visit_statement(*try_body);
+                self.visit_statement(try_body);
                 self.visit_identifier(exception_id);
-                self.visit_statement(*catch_body);
+                self.visit_statement(catch_body);
                 self.pop_level();
             },
             Statement::Throw(value) => {
@@ -239,21 +239,21 @@ impl SimpleVisitorMut for PrettyPrinter {
         self.pop_level();
     }
 
-    fn visit_func_params(&mut self, params: FunctionParams) {
+    fn visit_func_params(&mut self, params: AstNode<FunctionParams>) {
         self.print("FUNC PARAMS");
 
         self.push_level();
-        for param in params.params {
+        for param in params.value.params {
             self.visit_func_param(param);
         }
         self.pop_level();
     }
 
-    fn visit_func_param(&mut self, param: FunctionParam) {
+    fn visit_func_param(&mut self, param: AstNode<FunctionParam>) {
         self.print("FUNC PARAM");
         
         self.push_level();
-        match param {
+        match *param.value {
             FunctionParam::Normal(identifier) => {
                 self.print("NORMAL");
 
@@ -276,8 +276,8 @@ impl SimpleVisitorMut for PrettyPrinter {
         self.pop_level();
     }
 
-    fn visit_local_declare(&mut self, local_declare: LocalDeclare) {
-        match local_declare {
+    fn visit_local_declare(&mut self, local_declare: AstNode<LocalDeclare>) {
+        match *local_declare.value {
             LocalDeclare::Function(identifier, bind_env, params, body) => {
                 self.print("FUNCTION");
 
@@ -287,7 +287,7 @@ impl SimpleVisitorMut for PrettyPrinter {
                     self.visit_expression(bind_env);
                 }
                 self.visit_func_params(params);
-                self.visit_statement(*body);
+                self.visit_statement(body);
                 self.pop_level();
             }
             LocalDeclare::Assign(assign_exprs) => {
@@ -302,22 +302,22 @@ impl SimpleVisitorMut for PrettyPrinter {
         }
     }
 
-    fn visit_assign_expr(&mut self, assign_expr: AssignExpression) {
+    fn visit_assign_expr(&mut self, assign_expr: AstNode<AssignExpression>) {
         self.print("ASSIGN EXPRESSION");
 
         self.push_level();
-        self.visit_identifier(assign_expr.identifier);
-        if let Some(expression) = assign_expr.value {
+        self.visit_identifier(assign_expr.value.identifier);
+        if let Some(expression) = assign_expr.value.value {
             self.visit_expression(expression);
         }
         self.pop_level();
     }
 
-    fn visit_for_init(&mut self, for_init: ForInit) {
+    fn visit_for_init(&mut self, for_init: AstNode<ForInit>) {
         self.print("FOR INIT");
 
         self.push_level();
-        match for_init {
+        match *for_init.value {
             ForInit::LocalDeclare(local_declare) => {
                 self.print("LOCAL DECLARE");
 
@@ -332,176 +332,176 @@ impl SimpleVisitorMut for PrettyPrinter {
         self.pop_level();
     }
 
-    fn visit_unary_op(&mut self, unary_op: UnaryOp) {
+    fn visit_unary_op(&mut self, unary_op: AstNode<UnaryOp>) {
         self.print("UNARY OP");
 
         self.push_level();
-        self.visit_prefixed_exp(unary_op.expression);
+        self.visit_prefixed_exp(unary_op.value.expression);
         self.pop_level();
     }
 
-    fn visit_logical_or_exp(&mut self, logical_or: LogicalOrExpression) {
-        if logical_or.right.is_empty() {
-            self.visit_logical_and_exp(logical_or.left);
+    fn visit_logical_or_exp(&mut self, logical_or: AstNode<LogicalOrExpression>) {
+        if logical_or.value.right.is_empty() {
+            self.visit_logical_and_exp(logical_or.value.left);
         } else {
             self.print("LOGICAL OR");
 
             self.push_level();
-            self.visit_logical_and_exp(logical_or.left);
-            for expression in logical_or.right {
-                self.visit_logical_or_exp(*expression);
+            self.visit_logical_and_exp(logical_or.value.left);
+            for expression in logical_or.value.right {
+                self.visit_logical_or_exp(expression);
             }
             self.pop_level();
         }
     }
 
-    fn visit_logical_and_exp(&mut self, logical_and: LogicalAndExpression) {
-        if logical_and.right.is_empty() {
-            self.visit_bitwise_or_exp(logical_and.left);
+    fn visit_logical_and_exp(&mut self, logical_and: AstNode<LogicalAndExpression>) {
+        if logical_and.value.right.is_empty() {
+            self.visit_bitwise_or_exp(logical_and.value.left);
         } else {
             self.print("LOGICAL AND");
 
             self.push_level();
-            self.visit_bitwise_or_exp(logical_and.left);
-            for expression in logical_and.right {
-                self.visit_logical_and_exp(*expression);
+            self.visit_bitwise_or_exp(logical_and.value.left);
+            for expression in logical_and.value.right {
+                self.visit_logical_and_exp(expression);
             }
             self.pop_level();
         }
     }
 
-    fn visit_bitwise_or_exp(&mut self, bitwise_or: BitwiseOrExpression) {
-        if bitwise_or.right.is_empty() {
-            self.visit_bitwise_xor_exp(bitwise_or.left);
+    fn visit_bitwise_or_exp(&mut self, bitwise_or: AstNode<BitwiseOrExpression>) {
+        if bitwise_or.value.right.is_empty() {
+            self.visit_bitwise_xor_exp(bitwise_or.value.left);
         } else {
             self.print("BITWISE OR");
 
             self.push_level();
-            self.visit_bitwise_xor_exp(bitwise_or.left);
-            for expression in bitwise_or.right {
+            self.visit_bitwise_xor_exp(bitwise_or.value.left);
+            for expression in bitwise_or.value.right {
                 self.visit_bitwise_xor_exp(expression);
             }
             self.pop_level();
         }
     }
 
-    fn visit_bitwise_xor_exp(&mut self, bitwise_xor: BitwiseXorExpression) {
-        if bitwise_xor.right.is_empty() {
-            self.visit_bitwise_and_exp(bitwise_xor.left);
+    fn visit_bitwise_xor_exp(&mut self, bitwise_xor: AstNode<BitwiseXorExpression>) {
+        if bitwise_xor.value.right.is_empty() {
+            self.visit_bitwise_and_exp(bitwise_xor.value.left);
         } else {
             self.print("BITWISE XOR");
 
             self.push_level();
-            self.visit_bitwise_and_exp(bitwise_xor.left);
-            for expression in bitwise_xor.right {
+            self.visit_bitwise_and_exp(bitwise_xor.value.left);
+            for expression in bitwise_xor.value.right {
                 self.visit_bitwise_and_exp(expression);
             }
             self.pop_level();
         }
     }
 
-    fn visit_bitwise_and_exp(&mut self, bitwise_and: BitwiseAndExpression) {
-        if bitwise_and.right.is_empty() {
-            self.visit_equal_exp(bitwise_and.left);
+    fn visit_bitwise_and_exp(&mut self, bitwise_and: AstNode<BitwiseAndExpression>) {
+        if bitwise_and.value.right.is_empty() {
+            self.visit_equal_exp(bitwise_and.value.left);
         } else {
             self.print("BITWISE AND");
 
             self.push_level();
-            self.visit_equal_exp(bitwise_and.left);
-            for expression in bitwise_and.right {
+            self.visit_equal_exp(bitwise_and.value.left);
+            for expression in bitwise_and.value.right {
                 self.visit_equal_exp(expression);
             }
             self.pop_level();
         }
     }
 
-    fn visit_equal_exp(&mut self, equal: EqualExpression) {
-        if equal.slices.is_empty() {
-            self.visit_compare_exp(equal.left);
+    fn visit_equal_exp(&mut self, equal: AstNode<EqualExpression>) {
+        if equal.value.slices.is_empty() {
+            self.visit_compare_exp(equal.value.left);
         } else {
             self.print("EQUAL");
 
             self.push_level();
-            self.visit_compare_exp(equal.left);
-            for slice in equal.slices {
-                self.visit_compare_exp(slice.right);
+            self.visit_compare_exp(equal.value.left);
+            for slice in equal.value.slices {
+                self.visit_compare_exp(slice.value.right);
             }
             self.pop_level();
         }
     }
 
-    fn visit_compare_exp(&mut self, compare: CompareExpression) {
-        if compare.slices.is_empty() {
-            self.visit_shift_exp(compare.left);
+    fn visit_compare_exp(&mut self, compare: AstNode<CompareExpression>) {
+        if compare.value.slices.is_empty() {
+            self.visit_shift_exp(compare.value.left);
         } else {
             self.print("COMPARE");
 
             self.push_level();
-            self.visit_shift_exp(compare.left);
-            for slice in compare.slices {
-                self.visit_shift_exp(slice.right);
+            self.visit_shift_exp(compare.value.left);
+            for slice in compare.value.slices {
+                self.visit_shift_exp(slice.value.right);
             }
             self.pop_level();
         }
     }
 
-    fn visit_shift_exp(&mut self, shift: ShiftExpression) {
-        if shift.slices.is_empty() {
-            self.visit_plus_exp(shift.left);
+    fn visit_shift_exp(&mut self, shift: AstNode<ShiftExpression>) {
+        if shift.value.slices.is_empty() {
+            self.visit_plus_exp(shift.value.left);
         } else {
             self.print("SHIFT");
 
             self.push_level();
-            self.visit_plus_exp(shift.left);
-            for slice in shift.slices {
-                self.visit_plus_exp(slice.right);
+            self.visit_plus_exp(shift.value.left);
+            for slice in shift.value.slices {
+                self.visit_plus_exp(slice.value.right);
             }
             self.pop_level();
         }
     }
 
-    fn visit_plus_exp(&mut self, plus: PlusExpression) {
-        if plus.slices.is_empty() {
-            self.visit_multiply_exp(plus.left);
+    fn visit_plus_exp(&mut self, plus: AstNode<PlusExpression>) {
+        if plus.value.slices.is_empty() {
+            self.visit_multiply_exp(plus.value.left);
         } else {
             self.print("PLUS");
 
             self.push_level();
-            self.visit_multiply_exp(plus.left);
-            for slice in plus.slices {
-                self.visit_multiply_exp(slice.right);
+            self.visit_multiply_exp(plus.value.left);
+            for slice in plus.value.slices {
+                self.visit_multiply_exp(slice.value.right);
             }
             self.pop_level();
         }
     }
 
-    fn visit_multiply_exp(&mut self, multiply: MultiplyExpression) {
-        if multiply.slices.is_empty() {
-            self.visit_prefixed_exp(multiply.left);
+    fn visit_multiply_exp(&mut self, multiply: AstNode<MultiplyExpression>) {
+        if multiply.value.slices.is_empty() {
+            self.visit_prefixed_exp(multiply.value.left);
         } else {
             self.print("MULTIPLY");
 
             self.push_level();
-            self.visit_prefixed_exp(multiply.left);
-            for slice in multiply.slices {
-                self.visit_prefixed_exp(slice.right);
+            self.visit_prefixed_exp(multiply.value.left);
+            for slice in multiply.value.slices {
+                self.visit_prefixed_exp(slice.value.right);
             }
             self.pop_level();
         }
     }
 
-    fn visit_prefixed_exp(&mut self, prefixed: PrefixedExpression) {
-        if prefixed.expr_types.is_empty() {
-            self.visit_factor(prefixed.factor);
+    fn visit_prefixed_exp(&mut self, prefixed: AstNode<PrefixedExpression>) {
+        if prefixed.value.expr_types.is_empty() {
+            self.visit_factor(prefixed.value.factor);
         } else {
             self.print("PREFIXED");
 
             self.push_level();
-            self.visit_factor(prefixed.factor);
+            self.visit_factor(prefixed.value.factor);
             self.pop_level();
-            for expr_type in prefixed.expr_types {
+            for expr_type in prefixed.value.expr_types {
                 self.push_level();
-                match expr_type {
+                match *expr_type.value {
                     PrefixedExpressionType::DotAccess(identifier) => {
                         self.print("DOT ACCESS");
 
@@ -526,7 +526,7 @@ impl SimpleVisitorMut for PrettyPrinter {
                         self.print("FUNCTION CALL");
 
                         self.push_level();
-                        for expression in args.args {
+                        for expression in args.value.args {
                             self.visit_expression(expression);
                         }
                         self.pop_level();
@@ -539,17 +539,17 @@ impl SimpleVisitorMut for PrettyPrinter {
         }
     }
 
-    fn visit_table(&mut self, table: Table) {
-        for entry in table.entries {
+    fn visit_table(&mut self, table: AstNode<Table>) {
+        for entry in table.value.entries {
             self.visit_table_entry(entry);
         }
     }
 
-    fn visit_table_entry(&mut self, entry: TableEntry) {
+    fn visit_table_entry(&mut self, entry: AstNode<TableEntry>) {
         self.print("TABLE ENTRY");
 
         self.push_level();
-        match entry {
+        match *entry.value {
             TableEntry::Function(name, params, body) => {
                 self.print("FUNCTION");
                 
@@ -601,11 +601,11 @@ impl SimpleVisitorMut for PrettyPrinter {
         self.pop_level();
     }
 
-    fn visit_factor(&mut self, factor: Factor) {
+    fn visit_factor(&mut self, factor: AstNode<Factor>) {
         self.print("FACTOR");
 
         self.push_level();
-        match factor {
+        match *factor.value {
             Factor::Scalar(scalar) => {
                 self.print("SCALAR");
 
@@ -623,7 +623,7 @@ impl SimpleVisitorMut for PrettyPrinter {
                 self.print("DOUBLE_COLON");
 
                 self.push_level();
-                self.visit_prefixed_exp(*prefixed_expression);
+                self.visit_prefixed_exp(prefixed_expression);
                 self.pop_level();
             },
             Factor::Null => self.print("NULL"),
@@ -652,7 +652,7 @@ impl SimpleVisitorMut for PrettyPrinter {
                 }
 
                 self.visit_func_params(params);
-                self.visit_statement(*body);
+                self.visit_statement(body);
                 self.pop_level();
             },
             Factor::LambdaExpression(bind_env, params, body) => {
@@ -677,14 +677,14 @@ impl SimpleVisitorMut for PrettyPrinter {
                 self.print("UNARY OP");
 
                 self.push_level();
-                self.visit_unary_op(*unary_op);
+                self.visit_unary_op(unary_op);
                 self.pop_level();
             },
             Factor::RawCall(args) => {
                 self.print("RAWCALL");
 
                 self.push_level();
-                for expression in args.args {
+                for expression in args.value.args {
                     self.visit_expression(expression);
                 }
 
@@ -695,7 +695,7 @@ impl SimpleVisitorMut for PrettyPrinter {
                 self.print("DELETE");
 
                 self.push_level();
-                self.visit_prefixed_exp(*expression);
+                self.visit_prefixed_exp(expression);
                 self.pop_level();
             },
             Factor::ParenExpression(expression) => {
@@ -715,71 +715,71 @@ impl SimpleVisitorMut for PrettyPrinter {
         self.pop_level();
     }
 
-    fn visit_expression(&mut self, expression: Expression) {
+    fn visit_expression(&mut self, expression: AstNode<Expression>) {
         self.print("EXPRESSION");
 
         self.push_level();
-        self.visit_logical_or_exp(*expression.logical_or);
+        self.visit_logical_or_exp(expression.value.logical_or);
         self.pop_level();
 
-        if let Some(expr_type) = expression.expr_type {
-            match expr_type {
+        if let Some(expr_type) = expression.value.expr_type {
+            match *expr_type.value {
                 ExpressionType::Newslot(expression) => {
                     self.print("NEWSLOT");
 
                     self.push_level();
-                    self.visit_expression(*expression);
+                    self.visit_expression(expression);
                     self.pop_level();
                 },
                 ExpressionType::Assign(expression) => {
                     self.print("ASSIGN");
 
                     self.push_level();
-                    self.visit_expression(*expression);
+                    self.visit_expression(expression);
                     self.pop_level();
                 },
                 ExpressionType::MinusEqual(expression) => {
                     self.print("MINUS EQUAL");
 
                     self.push_level();
-                    self.visit_expression(*expression);
+                    self.visit_expression(expression);
                     self.pop_level();
                 },
                 ExpressionType::PlusEqual(expression) => {
                     self.print("PLUS EQUAL");
 
                     self.push_level();
-                    self.visit_expression(*expression);
+                    self.visit_expression(expression);
                     self.pop_level();
                 },
                 ExpressionType::MultiplyEqual(expression) => {
                     self.print("MULTIPLY EQUAL");
 
                     self.push_level();
-                    self.visit_expression(*expression);
+                    self.visit_expression(expression);
                     self.pop_level();
                 },
                 ExpressionType::DivideEqual(expression) => {
                     self.print("DIVIDE EQUAL");
 
                     self.push_level();
-                    self.visit_expression(*expression);
+                    self.visit_expression(expression);
                     self.pop_level();
                 },
                 ExpressionType::Ternary(true_case, false_case) => {
                     self.print("TERNARY");
 
                     self.push_level();
-                    self.visit_expression(*true_case);
-                    self.visit_expression(*false_case);
+                    self.visit_expression(true_case);
+                    self.visit_expression(false_case);
                     self.pop_level();
                 },
             }
         }
     }
 
-    fn visit_scalar(&mut self, scalar: Scalar) {
-        match scalar {
+    fn visit_scalar(&mut self, scalar: AstNode<Scalar>) {
+        match *scalar.value {
             Scalar::Integer(value) => self.print(&format!("INTEGER: {}", value)),
             Scalar::Float(value) => self.print(&format!("FLOAT: {}", value)),
             Scalar::StringLiteral(value) => self.print(&format!("STRING: {}", value)),
@@ -788,7 +788,7 @@ impl SimpleVisitorMut for PrettyPrinter {
         }
     }
 
-    fn visit_identifier(&mut self, identifier: Identifier) {
-        self.print(&format!("IDENTIFIER: {}", identifier.value));
+    fn visit_identifier(&mut self, identifier: AstNode<Identifier>) {
+        self.print(&format!("IDENTIFIER: {}", identifier.value.value));
     }
 }

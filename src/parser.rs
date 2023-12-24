@@ -1,9 +1,11 @@
 use std::fmt::Display;
+use std::process::id;
 
 use crate::ast::*;
 use crate::lexer::*;
 use crate::source_info::SourceRange;
 
+#[derive(Debug)]
 pub struct ParseError {
     pub message: String,
     pub range: SourceRange,
@@ -27,6 +29,20 @@ impl Display for ParseError {
 pub struct Parser<'a> {
     tokens: &'a Vec<Token>,
     token_index: usize,
+    node_start: Vec<usize>,
+}
+
+impl<'a> Parser<'a> {
+    fn wrap_node<T>(&mut self, non_terminal: &dyn Fn(&mut Self) -> Result<T, ParseError>) -> Result<AstNode<T>, ParseError> {
+        let start_index = self.token_index;
+
+        let result = non_terminal(self)?;
+
+        let end_index = self.token_index;
+        let range = SourceRange::new(self.tokens.get(start_index).unwrap().range.start, self.tokens.get(end_index).unwrap().range.end);
+
+        return Ok(AstNode::new(range, result));
+    }
 }
 
 impl<'a> Parser<'a> {
@@ -34,16 +50,31 @@ impl<'a> Parser<'a> {
         Self {
             tokens,
             token_index: 0,
+            node_start: Vec::new(),
         }
     }
+
+    fn start_node(&mut self) {
+        self.node_start.push(self.token_index);
+    }
+
+    fn new_node<T>(&mut self, value: T) -> AstNode<T> {
+        let range = SourceRange::new(self.tokens.get(self.node_start.pop().unwrap()).unwrap().range.start, self.tokens.get(self.token_index).unwrap().range.end);
+
+        return AstNode::new(range, value);
+    }
     
-    pub fn parse(&mut self) -> Result<Script, ParseError> {
+    pub fn parse(&mut self) -> Result<AstNode<Script>, ParseError> {
         self.ignore_newlines();
 
         // hacky way to prevent stack overflow :/
         return stacker::grow(100 * 1024 * 1024, || {
             return Ok(self.script()?);
         });
+    }
+
+    pub fn reset(&mut self) {
+        self.token_index = 0;
     }
 
     fn ignore_newlines(&mut self) {
@@ -102,8 +133,10 @@ impl<'a> Parser<'a> {
 
     // ---------------------------------------------------
 
-    fn script(&mut self) -> Result<Script, ParseError> {
-        let mut statements: Vec<Statement> = Vec::new();
+    fn script(&mut self) -> Result<AstNode<Script>, ParseError> {
+        self.start_node();
+
+        let mut statements: Vec<AstNode<Statement>> = Vec::new();
         while !self.is_end_of_tokens() {
             statements.push(self.statement()?);
             if self.prev_token().token_type != TokenType::RightCurly && self.prev_token().token_type != TokenType::Semicolon {
@@ -111,7 +144,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        return Ok(Script::new(statements))
+        return Ok(self.new_node(Script::new(statements)));
     }
 
     fn optional_semicolon(&mut self) -> Result<(), ParseError> {
@@ -127,7 +160,9 @@ impl<'a> Parser<'a> {
         return Ok(());
     }
 
-    fn statement(&mut self) -> Result<Statement, ParseError> {
+    fn statement(&mut self) -> Result<AstNode<Statement>, ParseError> {
+        self.start_node();
+
         match self.current_token_type() {
             TokenType::If => {
                 return self.if_statement();
@@ -148,31 +183,37 @@ impl<'a> Parser<'a> {
                 return self.switch_statement();
             }
             TokenType::Local => {
-                return Ok(Statement::LocalDeclare(self.local_declare()?));
+                let local_declare = self.local_declare()?;
+
+                return Ok(self.new_node(Statement::LocalDeclare(local_declare)));
             }
             TokenType::Return => {
                 self.next_token();
                 if !self.is_end_of_statement() {
-                    return Ok(Statement::Return(Some(self.comma_expression()?)));
+                    let comma_expression = self.comma_expression()?;
+
+                    return Ok(self.new_node(Statement::Return(Some(comma_expression))));
                 } else {
-                    return Ok(Statement::Return(None));
+                    return Ok(self.new_node(Statement::Return(None)));
                 }
             }
             TokenType::Yield => {
                 self.next_token();
                 if !self.is_end_of_statement() {
-                    return Ok(Statement::Yield(Some(self.comma_expression()?)));
+                    let comma_expression = self.comma_expression()?;
+
+                    return Ok(self.new_node(Statement::Yield(Some(comma_expression))));
                 } else {
-                    return Ok(Statement::Yield(None));
+                    return Ok(self.new_node(Statement::Yield(None)));
                 }
             }
             TokenType::Break => {
                 self.next_token();
-                return Ok(Statement::Break);
+                return Ok(self.new_node(Statement::Break));
             }
             TokenType::Continue => {
                 self.next_token();
-                return Ok(Statement::Continue);
+                return Ok(self.new_node(Statement::Continue));
             }
             TokenType::Function => {
                 return self.function_statement();
@@ -191,56 +232,68 @@ impl<'a> Parser<'a> {
             }
             TokenType::Throw => {
                 self.next_token();
-                return Ok(Statement::Throw(self.comma_expression()?));
+                let comma_expression = self.comma_expression()?;
+
+                return Ok(self.new_node(Statement::Throw(comma_expression)));
             }
             TokenType::Const => {
                 return self.const_statement();
             }
             _ => {
-                return Ok(Statement::CommaExpression(self.comma_expression()?));
+                let comma_expression = self.comma_expression()?;
+
+                return Ok(self.new_node(Statement::CommaExpression(comma_expression)));
             }
         }
     }
 
-    fn if_statement(&mut self) -> Result<Statement, ParseError> {
+    fn if_statement(&mut self) -> Result<AstNode<Statement>, ParseError> {
+        self.start_node();
+
         self.next_token();
         self.expect(TokenType::LeftParen)?;
         let comma_expression = self.comma_expression()?;
         self.expect(TokenType::RightParen)?;
 
-        let if_block = Box::new(self.statement()?);
+        let if_block = self.statement()?;
         let mut else_block = None;
 
         if self.current_token_type() == TokenType::Else {
             self.next_token();
-            else_block = Some(Box::new(self.statement()?));
+            else_block = Some(self.statement()?);
         }
 
-        return Ok(Statement::If(comma_expression, if_block, else_block));
+        return Ok(self.new_node(Statement::If(comma_expression, if_block, else_block)));
     }
 
-    fn while_statement(&mut self) -> Result<Statement, ParseError> {
+    fn while_statement(&mut self) -> Result<AstNode<Statement>, ParseError> {
+        self.start_node();
+
         self.next_token();
         self.expect(TokenType::LeftParen)?;
         let comma_expression = self.comma_expression()?;
         self.expect(TokenType::RightParen)?;
-        let statement = Box::new(self.statement()?);
+        let statement = self.statement()?;
 
-        return Ok(Statement::While(comma_expression, statement));
+        return Ok(self.new_node(Statement::While(comma_expression, statement)));
     }
 
-    fn do_while_statement(&mut self) -> Result<Statement, ParseError> {
+    fn do_while_statement(&mut self) -> Result<AstNode<Statement>, ParseError> {
+        self.start_node();
+
         self.next_token();
-        let statement = Box::new(self.statement()?);
+        let statement = self.statement()?;
         self.expect(TokenType::While)?;
         self.expect(TokenType::LeftParen)?;
         let comma_expression = self.comma_expression()?;
         self.expect(TokenType::RightParen)?;
 
-        return Ok(Statement::DoWhile(statement, comma_expression));
+        return Ok(self.new_node(Statement::DoWhile(statement, comma_expression)));
     }
 
-    fn for_statement(&mut self) -> Result<Statement, ParseError> {
+    fn for_statement(&mut self) -> Result<AstNode<Statement>, ParseError> {
+        self.start_node();
+
         self.next_token();
         self.expect(TokenType::LeftParen)?;
 
@@ -249,9 +302,15 @@ impl<'a> Parser<'a> {
         let mut post = None;
 
         if self.current_token_type() == TokenType::Local {
-            init = Some(ForInit::LocalDeclare(self.local_declare()?));
+            self.start_node();
+            let local_declare = self.local_declare()?;
+
+            init = Some(self.new_node(ForInit::LocalDeclare(local_declare)));
         } else if self.current_token_type() != TokenType::Semicolon {
-            init = Some(ForInit::CommaExpression(self.comma_expression()?));
+            self.start_node();
+            let comma_expression = self.comma_expression()?;
+
+            init = Some(self.new_node(ForInit::CommaExpression(comma_expression)));
         }
 
         self.expect(TokenType::Semicolon)?;
@@ -268,32 +327,43 @@ impl<'a> Parser<'a> {
 
         self.expect(TokenType::RightParen)?;
 
-        let statement = Box::new(self.statement()?);
+        let statement = self.statement()?;
 
-        return Ok(Statement::For(init, condition, post, statement));
+        return Ok(self.new_node(Statement::For(init, condition, post, statement)));
     }
 
-    fn for_each_statement(&mut self) -> Result<Statement, ParseError> {
+    fn for_each_statement(&mut self) -> Result<AstNode<Statement>, ParseError> {
+        self.start_node();
+
         self.next_token();
         self.expect(TokenType::LeftParen)?;
-        let mut value_identifier = Identifier::from(self.expect(TokenType::Identifier)?);
+
+        self.start_node();
+        let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
+        let mut value_identifier = self.new_node(identifier);
         let mut key_identifier = None;
 
         if self.current_token_type() == TokenType::Comma {
             self.next_token();
             key_identifier = Some(value_identifier);
-            value_identifier = Identifier::from(self.expect(TokenType::Identifier)?);
+
+            self.start_node();
+            let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
+
+            value_identifier = self.new_node(identifier);
         }
 
         self.expect(TokenType::In)?;
         let expression = self.expression()?;
         self.expect(TokenType::RightParen)?;
-        let statement = Box::new(self.statement()?);
+        let statement = self.statement()?;
 
-        return Ok(Statement::ForEach(value_identifier, key_identifier, expression, statement));
+        return Ok(self.new_node(Statement::ForEach(value_identifier, key_identifier, expression, statement)));
     }
 
-    fn switch_statement(&mut self) -> Result<Statement, ParseError> {
+    fn switch_statement(&mut self) -> Result<AstNode<Statement>, ParseError> {
+        self.start_node();
+
         self.next_token();
         self.expect(TokenType::LeftParen)?;
         let value = self.comma_expression()?;
@@ -303,13 +373,15 @@ impl<'a> Parser<'a> {
         let mut switch_cases = Vec::new();
 
         while self.current_token_type() == TokenType::Case {
+            self.start_node();
+
             self.next_token();
             let expression = self.expression()?;
             self.expect(TokenType::Colon)?;
 
             let statements = self.statements()?;
 
-            switch_cases.push(SwitchCase::new(expression, statements));
+            switch_cases.push(self.new_node(SwitchCase::new(expression, statements)));
         }
 
         let mut default = None;
@@ -321,18 +393,28 @@ impl<'a> Parser<'a> {
 
         self.expect(TokenType::RightCurly)?;
  
-        return Ok(Statement::Switch(value, switch_cases, default));
+        return Ok(self.new_node(Statement::Switch(value, switch_cases, default)));
     }
 
-    fn function_statement(&mut self) -> Result<Statement, ParseError> {
+    fn function_statement(&mut self) -> Result<AstNode<Statement>, ParseError> {
+        self.start_node();
+
         self.next_token();
 
         let mut identifiers = Vec::new();
-        identifiers.push(Identifier::from(self.expect(TokenType::Identifier)?));
+        self.start_node();
+        self.start_node();
+        let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
+
+        identifiers.push(self.new_node(identifier));
 
         while self.current_token_type() == TokenType::DoubleColon {
+            self.start_node();
+
             self.next_token();
-            identifiers.push(Identifier::from(self.expect(TokenType::Identifier)?));
+            let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
+
+            identifiers.push(self.new_node(identifier));
         }
 
         let mut bind_env = None;
@@ -345,30 +427,43 @@ impl<'a> Parser<'a> {
             bind_env = Some(env_expression);
         }
 
-        let function_identifier = FunctionIdentifier::new(identifiers);
+        let function_identifier = self.new_node(FunctionIdentifier::new(identifiers));
         let params = self.function_params()?;
-        let body = Box::new(self.statement()?);
+        let body = self.statement()?;
 
-        return Ok(Statement::Function(function_identifier, bind_env, params, body));
+        return Ok(self.new_node(Statement::Function(function_identifier, bind_env, params, body)));
     }
 
-    fn class_statement(&mut self) -> Result<Statement, ParseError> {
+    fn class_statement(&mut self) -> Result<AstNode<Statement>, ParseError> {
+        self.start_node();
+
         self.next_token();
         let class_name = self.prefixed_expression()?;
         let class_expression = self.class_expression()?;
 
-        return Ok(Statement::Class(class_name, class_expression));
+        return Ok(self.new_node(Statement::Class(class_name, class_expression)));
     }
 
-    fn enum_statement(&mut self) -> Result<Statement, ParseError> {
+    fn enum_statement(&mut self) -> Result<AstNode<Statement>, ParseError> {
+        self.start_node();
+
         self.next_token();
-        let name = Identifier::from(self.expect(TokenType::Identifier)?);
+        self.start_node();
+        let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
+
+        let name = self.new_node(identifier);
         self.expect(TokenType::LeftCurly)?;
 
         let mut entries = Vec::new();
 
+        self.start_node();
         while self.current_token_type() != TokenType::RightCurly {
-            let entry_name = Identifier::from(self.expect(TokenType::Identifier)?);
+            self.start_node();
+
+            self.start_node();
+            let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
+
+            let entry_name = self.new_node(identifier);
             let mut entry_value = None;
 
             if self.current_token_type() == TokenType::Assign {
@@ -376,43 +471,56 @@ impl<'a> Parser<'a> {
                 entry_value = Some(self.scalar()?);
             }
 
-            entries.push(EnumEntry::new(entry_name, entry_value));
+            entries.push(self.new_node(EnumEntry::new(entry_name, entry_value)));
 
             if self.current_token_type() == TokenType::Comma {
                 self.next_token();
             }
         }
+        let values = self.new_node(EnumValues::new(entries));
         self.next_token();
 
-        return Ok(Statement::Enum(name, EnumValues::new(entries)));
+        return Ok(self.new_node(Statement::Enum(name, values)));
     }
 
-    fn statement_block(&mut self) -> Result<Statement, ParseError> {
+    fn statement_block(&mut self) -> Result<AstNode<Statement>, ParseError> {
+        self.start_node();
+
         self.next_token();
         let statements = self.statements()?;
         self.expect(TokenType::RightCurly)?;
 
-        return Ok(Statement::StatementBlock(statements));
+        return Ok(self.new_node(Statement::StatementBlock(statements)));
     }
 
-    fn try_statement(&mut self) -> Result<Statement, ParseError> {
+    fn try_statement(&mut self) -> Result<AstNode<Statement>, ParseError> {
+        self.start_node();
+
         self.next_token();
-        let try_body = Box::new(self.statement()?);
+        let try_body = self.statement()?;
         self.expect(TokenType::Catch)?;
         self.expect(TokenType::LeftParen)?;
-        let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
-        self.expect(TokenType::RightParen)?;
-        let catch_body = Box::new(self.statement()?);
 
-        return Ok(Statement::TryCatch(try_body, identifier, catch_body));
+        self.start_node();
+        let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
+
+        let identifier = self.new_node(identifier);
+
+        self.expect(TokenType::RightParen)?;
+        let catch_body = self.statement()?;
+
+        return Ok(self.new_node(Statement::TryCatch(try_body, identifier, catch_body)));
     }
 
-    fn function_params(&mut self) -> Result<FunctionParams, ParseError> {
+    fn function_params(&mut self) -> Result<AstNode<FunctionParams>, ParseError> {
+        self.start_node();
+
         self.expect(TokenType::LeftParen)?;
 
         let mut params = Vec::new();
 
         while self.current_token_type() != TokenType::RightParen {
+            self.start_node();
             if self.current_token_type() == TokenType::Varargs {
                 self.next_token();
                 
@@ -420,17 +528,20 @@ impl<'a> Parser<'a> {
                     return Err(self.build_error(String::from("expected ')' after varargs")));
                 }
 
-                params.push(FunctionParam::VarParams);
+                params.push(self.new_node(FunctionParam::VarParams));
             } else {
-                let name = Identifier::from(self.expect(TokenType::Identifier)?);
+                self.start_node();
+                let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
+
+                let name = self.new_node(identifier);
 
                 if self.current_token_type() == TokenType::Assign {
                     self.next_token();
                     let default_val = self.expression()?;
 
-                    params.push(FunctionParam::Default(name, default_val));
+                    params.push(self.new_node(FunctionParam::Default(name, default_val)));
                 } else {
-                    params.push(FunctionParam::Normal(name));
+                    params.push(self.new_node(FunctionParam::Normal(name)));
                 }
             }
 
@@ -443,14 +554,19 @@ impl<'a> Parser<'a> {
 
         self.expect(TokenType::RightParen)?;
 
-        return Ok(FunctionParams::new(params));
+        return Ok(self.new_node(FunctionParams::new(params)));
     }
 
-    fn local_declare(&mut self) -> Result<LocalDeclare, ParseError> {
+    fn local_declare(&mut self) -> Result<AstNode<LocalDeclare>, ParseError> {
+        self.start_node();
+
         self.next_token();
         if self.current_token_type() == TokenType::Function {
             self.next_token();
+            self.start_node();
             let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
+
+            let identifier = self.new_node(identifier);
             let mut bind_env = None;
 
             if self.current_token_type() == TokenType::LeftSquare {
@@ -459,9 +575,9 @@ impl<'a> Parser<'a> {
             }
 
             let params = self.function_params()?;
-            let body = Box::new(self.statement()?);
+            let body = self.statement()?;
 
-            return Ok(LocalDeclare::Function(identifier, bind_env, params, body));
+            return Ok(self.new_node(LocalDeclare::Function(identifier, bind_env, params, body)));
         }
 
         let mut assign_expressions = Vec::new();
@@ -476,11 +592,16 @@ impl<'a> Parser<'a> {
             }
         }
 
-        return Ok(LocalDeclare::Assign(assign_expressions));
+        return Ok(self.new_node(LocalDeclare::Assign(assign_expressions)));
     }
 
-    fn assign_expression(&mut self) -> Result<AssignExpression, ParseError> {
+    fn assign_expression(&mut self) -> Result<AstNode<AssignExpression>, ParseError> {
+        self.start_node();
+
+        self.start_node();
         let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
+
+        let identifier = self.new_node(identifier);
         let mut expression = None;
 
         if self.current_token_type() == TokenType::Assign {
@@ -488,46 +609,53 @@ impl<'a> Parser<'a> {
             expression = Some(self.expression()?);
         }
 
-        return Ok(AssignExpression::new(identifier, expression));
+        return Ok(self.new_node(AssignExpression::new(identifier, expression)));
     }
 
-    fn const_statement(&mut self) -> Result<Statement, ParseError> {
+    fn const_statement(&mut self) -> Result<AstNode<Statement>, ParseError> {
+        self.start_node();
+
         self.next_token();
-        let id = Identifier::from(self.expect(TokenType::Identifier)?);
+        self.start_node();
+        let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
+
+        let id = self.new_node(identifier);
         self.expect(TokenType::Assign)?;
         let scalar = self.scalar()?;
         self.optional_semicolon()?;
 
-        return Ok(Statement::Const(id, scalar));
+        return Ok(self.new_node(Statement::Const(id, scalar)));
     }
 
-    fn scalar(&mut self) -> Result<Scalar, ParseError> {
+    fn scalar(&mut self) -> Result<AstNode<Scalar>, ParseError> {
+        self.start_node();
+
         match self.current_token_type() {
             TokenType::IntegerLiteral => {
                 let value = self.current_token().nvalue.unwrap();
                 self.next_token();
 
-                return Ok(Scalar::Integer(value));
+                return Ok(self.new_node(Scalar::Integer(value)));
             }
             TokenType::FloatLiteral => {
                 let value = self.current_token().fvalue.unwrap();
                 self.next_token();
 
-                return Ok(Scalar::Float(value));
+                return Ok(self.new_node(Scalar::Float(value)));
             }
             TokenType::StringLiteral => {
                 let value = self.current_token().svalue.as_ref().unwrap().to_string();
                 self.next_token();
 
-                return Ok(Scalar::StringLiteral(value));
+                return Ok(self.new_node(Scalar::StringLiteral(value)));
             }
             TokenType::True => {
                 self.next_token();
-                return Ok(Scalar::True);
+                return Ok(self.new_node(Scalar::True));
             }
             TokenType::False => {
                 self.next_token();
-                return Ok(Scalar::False);
+                return Ok(self.new_node(Scalar::False));
             }
             TokenType::Minus => {
                 self.next_token();
@@ -536,13 +664,13 @@ impl<'a> Parser<'a> {
                         let value = self.current_token().nvalue.unwrap();
                         self.next_token();
 
-                        return Ok(Scalar::Integer(value));
+                        return Ok(self.new_node(Scalar::Integer(value)));
                     }
                     TokenType::FloatLiteral => {
                         let value = self.current_token().fvalue.unwrap();
                         self.next_token();
 
-                        return Ok(Scalar::Float(value));
+                        return Ok(self.new_node(Scalar::Float(value)));
                     }
                     unhandled_type => {
                         return Err(self.build_error(format!("expected int or float scalar, got '{}'", unhandled_type)));
@@ -555,66 +683,83 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn factor(&mut self) -> Result<Factor, ParseError> {
+    fn factor(&mut self) -> Result<AstNode<Factor>, ParseError> {
+        self.start_node();
+
         match self.current_token_type() {
             TokenType::StringLiteral => {
+                self.start_node();
                 let value = self.current_token().svalue.as_ref().unwrap().to_string();
                 self.next_token();
 
-                return Ok(Factor::Scalar(Scalar::StringLiteral(value)));
+                let string_literal = Scalar::StringLiteral(value);
+                let scalar = Factor::Scalar(self.new_node(string_literal));
+
+                return Ok(self.new_node(scalar));
             }
             TokenType::Base => {
                 self.next_token();
 
-                return Ok(Factor::Base);
+                return Ok(self.new_node(Factor::Base));
             }
             TokenType::Identifier => {
-                let identifier = Identifier::from(self.current_token());
+                self.start_node();
+                let identifier = self.new_node(Identifier::from(self.current_token()));
                 self.next_token();
 
-                return Ok(Factor::Identifier(identifier));
+                return Ok(self.new_node(Factor::Identifier(identifier)));
             }
             TokenType::Constructor => {
                 self.next_token();
 
-                return Ok(Factor::Constructor);
+                return Ok(self.new_node(Factor::Constructor));
             }
             TokenType::This => {
                 self.next_token();
 
-                return Ok(Factor::This);
+                return Ok(self.new_node(Factor::This));
             }
             TokenType::DoubleColon => {
                 self.next_token();
 
-                return Ok(Factor::DoubleColon(Box::new(self.prefixed_expression()?)));
+                let prefixed_expr = self.prefixed_expression()?;
+
+                return Ok(self.new_node(Factor::DoubleColon(prefixed_expr)));
             }
             TokenType::Null => {
                 self.next_token();
 
-                return Ok(Factor::Null);
+                return Ok(self.new_node(Factor::Null));
             }
             TokenType::IntegerLiteral => {
-                let value = self.current_token().nvalue.unwrap();
+                self.start_node();
+                let value = self.new_node(Scalar::Integer(self.current_token().nvalue.unwrap()));
                 self.next_token();
 
-                return Ok(Factor::Scalar(Scalar::Integer(value)));
+                return Ok(self.new_node(Factor::Scalar(value)));
             }
             TokenType::FloatLiteral => {
-                let value = self.current_token().fvalue.unwrap();
+                self.start_node();
+                let value = self.new_node(Scalar::Float(self.current_token().fvalue.unwrap()));
                 self.next_token();
 
-                return Ok(Factor::Scalar(Scalar::Float(value)));
+                return Ok(self.new_node(Factor::Scalar(value)));
             }
             TokenType::True => {
+                self.start_node();
                 self.next_token();
 
-                return Ok(Factor::Scalar(Scalar::True));
+                let true_scalar = self.new_node(Scalar::True);
+
+                return Ok(self.new_node(Factor::Scalar(true_scalar)));
             }
             TokenType::False => {
+                self.start_node();
                 self.next_token();
 
-                return Ok(Factor::Scalar(Scalar::False));
+                let false_scalar = self.new_node(Scalar::False);
+
+                return Ok(self.new_node(Factor::Scalar(false_scalar)));
             }
             TokenType::LeftSquare => {
                 self.next_token();
@@ -622,7 +767,9 @@ impl<'a> Parser<'a> {
                 return Ok(self.array_init()?);
             }
             TokenType::LeftCurly => {
-                return Ok(Factor::TableInit(self.table()?));
+                let table = self.table()?;
+
+                return Ok(self.new_node(Factor::TableInit(table)));
             }
             TokenType::Function => {
                 return self.function_expression();
@@ -633,63 +780,76 @@ impl<'a> Parser<'a> {
             TokenType::Class => {
                 self.next_token();
                 
-                return Ok(Factor::ClassExpression(self.class_expression()?));
+                let class_expression = self.class_expression()?;
+
+                return Ok(self.new_node(Factor::ClassExpression(class_expression)));
             }
             TokenType::Minus => {
+                self.start_node();
                 self.next_token();
+                let minus = self.new_node(TokenType::Minus);
 
                 match self.current_token_type() {
                     TokenType::IntegerLiteral => {
-                        let value = self.current_token().nvalue.unwrap();
+                        self.start_node();
+                        let value = self.new_node(Scalar::Integer(self.current_token().nvalue.unwrap()));
                         self.next_token();
 
-                        return Ok(Factor::Scalar(Scalar::Integer(value)));
+                        return Ok(self.new_node(Factor::Scalar(value)));
                     }
                     TokenType::FloatLiteral => {
-                        let value = self.current_token().fvalue.unwrap();
+                        self.start_node();
+                        let value = self.new_node(Scalar::Float(self.current_token().fvalue.unwrap()));
                         self.next_token();
 
-                        return Ok(Factor::Scalar(Scalar::Float(value)));
+                        return Ok(self.new_node(Factor::Scalar(value)));
                     }
                     _ => {
-                        return Ok(Factor::UnaryOp(Box::new(self.unary_op(TokenType::Minus)?)));
+                        let unary_op = self.unary_op(minus)?;
+
+                        return Ok(self.new_node(Factor::UnaryOp(unary_op)));
                     }
                 }
             }
             TokenType::LogicalNot | TokenType::BitwiseNot | TokenType::Typeof | TokenType::Resume | TokenType::Clone
                 | TokenType::MinusMinus | TokenType::PlusPlus => {
-                let operator = self.current_token_type();
+                self.start_node();
+                let operator = self.new_node(self.current_token_type());
                 self.next_token();
 
-                return Ok(Factor::UnaryOp(Box::new(self.unary_op(operator)?)));
+                let unary_op = self.unary_op(operator)?;
+
+                return Ok(self.new_node(Factor::UnaryOp(unary_op)));
             }
             TokenType::Rawcall => {
                 self.next_token();
 
-                return Ok(Factor::RawCall(self.function_call_args()?));
+                let function_call_args = self.function_call_args()?;
+
+                return Ok(self.new_node(Factor::RawCall(function_call_args)));
             }
             TokenType::Delete => {
                 self.next_token();
                 let prefixed_expression = self.prefixed_expression()?;
 
-                return Ok(Factor::Delete(Box::new(prefixed_expression)));
+                return Ok(self.new_node(Factor::Delete(prefixed_expression)));
             }
             TokenType::LeftParen => {
                 self.next_token();
                 let comma_expression = self.comma_expression()?;
                 self.expect(TokenType::RightParen)?;
 
-                return Ok(Factor::ParenExpression(comma_expression));
+                return Ok(self.new_node(Factor::ParenExpression(comma_expression)));
             }
             TokenType::LineInfo => {
                 self.next_token();
 
-                return Ok(Factor::LineInfo);
+                return Ok(self.new_node(Factor::LineInfo));
             }
             TokenType::FileInfo => {
                 self.next_token();
 
-                return Ok(Factor::FileInfo);
+                return Ok(self.new_node(Factor::FileInfo));
             }
             unhandled_type => {
                 return Err(self.build_error(format!("Unexpected token for factor: '{}'", unhandled_type)));
@@ -697,30 +857,41 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn simple_table_entry(&mut self) -> Result<TableEntry, ParseError> {
-        let key = Identifier::from(self.expect(TokenType::Identifier)?);
+    fn simple_table_entry(&mut self) -> Result<AstNode<TableEntry>, ParseError> {
+        self.start_node();
+
+        self.start_node();
+        let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
+
+        let key = self.new_node(identifier);
         self.expect(TokenType::Assign)?;
         let value = self.expression()?;
 
-        return Ok(TableEntry::Simple(key, value))
+        return Ok(self.new_node(TableEntry::Simple(key, value)))
     }
 
-    fn table_entry(&mut self, is_class: bool) -> Result<TableEntry, ParseError> {
+    fn table_entry(&mut self, is_class: bool) -> Result<AstNode<TableEntry>, ParseError> {
+        self.start_node();
+
         match self.current_token_type() {
             TokenType::Function => {
                 self.next_token();
-                let key = Identifier::from(self.expect(TokenType::Identifier)?);
+
+                self.start_node();
+                let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
+
+                let key = self.new_node(identifier);
                 let params = self.function_params()?;
                 let body = self.statement()?;
 
-                return Ok(TableEntry::Function(key, params, body));
+                return Ok(self.new_node(TableEntry::Function(key, params, body)));
             },
             TokenType::Constructor => {
                 self.next_token();
                 let params = self.function_params()?;
                 let body = self.statement()?;
 
-                return Ok(TableEntry::Constructor(params, body));
+                return Ok(self.new_node(TableEntry::Constructor(params, body)));
             },
             TokenType::LeftSquare => {
                 self.next_token();
@@ -729,7 +900,7 @@ impl<'a> Parser<'a> {
                 self.expect(TokenType::Assign)?;
                 let value = self.expression()?;
 
-                return Ok(TableEntry::DynamicAssign(key, value));
+                return Ok(self.new_node(TableEntry::DynamicAssign(key, value)));
             },
             TokenType::StringLiteral => {
                 if !is_class {
@@ -738,7 +909,7 @@ impl<'a> Parser<'a> {
                     self.expect(TokenType::Colon)?;
                     let value = self.expression()?;
 
-                    return Ok(TableEntry::JsonStyle(key, value));
+                    return Ok(self.new_node(TableEntry::JsonStyle(key, value)));
                 } else {
                     return self.simple_table_entry();
                 }
@@ -749,7 +920,9 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn table(&mut self) -> Result<Table, ParseError> {
+    fn table(&mut self) -> Result<AstNode<Table>, ParseError> {
+        self.start_node();
+
         self.next_token();
 
         let mut entries = Vec::new();
@@ -763,11 +936,13 @@ impl<'a> Parser<'a> {
         }
         self.next_token();
 
-        return Ok(Table::new(entries));
+        return Ok(self.new_node(Table::new(entries)));
     }
 
-    fn statements(&mut self) -> Result<Statements, ParseError> {
-        let mut statements: Vec<Statement> = Vec::new();
+    fn statements(&mut self) -> Result<AstNode<Statements>, ParseError> {
+        self.start_node();
+
+        let mut statements: Vec<AstNode<Statement>> = Vec::new();
         while self.current_token_type() != TokenType::RightCurly && self.current_token_type() != TokenType::Default && self.current_token_type() != TokenType::Case {
             statements.push(self.statement()?);
 
@@ -776,53 +951,70 @@ impl<'a> Parser<'a> {
             }
         }
 
-        return Ok(Statements::new(statements))
+        return Ok(self.new_node(Statements::new(statements)));
     }
 
-    fn expression(&mut self) -> Result<Expression, ParseError> {
-        let logical_or = Box::new(self.logical_or_expression()?);
+    fn expression(&mut self) -> Result<AstNode<Expression>, ParseError> {
+        self.start_node();
+
+        let logical_or = self.logical_or_expression()?;
         let mut expr_type = None;
 
+        self.start_node();
         match self.current_token_type() {
             TokenType::Newslot => {
                 self.next_token();
-                expr_type = Some(ExpressionType::Newslot(Box::new(self.expression()?)));
+                let expression = self.expression()?;
+
+                expr_type = Some(self.new_node(ExpressionType::Newslot(expression)));
             }
             TokenType::Assign => {
                 self.next_token();
-                expr_type = Some(ExpressionType::Assign(Box::new(self.expression()?)));
+                let expression = self.expression()?;
+
+                expr_type = Some(self.new_node(ExpressionType::Assign(expression)));
             }
             TokenType::MinusEqual => {
                 self.next_token();
-                expr_type = Some(ExpressionType::MinusEqual(Box::new(self.expression()?)));
+                let expression = self.expression()?;
+
+                expr_type = Some(self.new_node(ExpressionType::MinusEqual(expression)));
             }
             TokenType::PlusEqual => {
                 self.next_token();
-                expr_type = Some(ExpressionType::PlusEqual(Box::new(self.expression()?)));
+                let expression = self.expression()?;
+
+                expr_type = Some(self.new_node(ExpressionType::PlusEqual(expression)));
             }
             TokenType::MultiplyEqual => {
                 self.next_token();
-                expr_type = Some(ExpressionType::MultiplyEqual(Box::new(self.expression()?)));
+                let expression = self.expression()?;
+
+                expr_type = Some(self.new_node(ExpressionType::MultiplyEqual(expression)));
             }
             TokenType::DivideEqual => {
                 self.next_token();
-                expr_type = Some(ExpressionType::DivideEqual(Box::new(self.expression()?)));
+                let expression = self.expression()?;
+
+                expr_type = Some(self.new_node(ExpressionType::DivideEqual(expression)));
             }
             TokenType::Ternary => {
                 self.next_token();
-                let true_case = Box::new(self.expression()?);
+                let true_case = self.expression()?;
                 self.expect(TokenType::Colon)?;
-                let false_case = Box::new(self.expression()?);
+                let false_case = self.expression()?;
 
-                expr_type = Some(ExpressionType::Ternary(true_case, false_case));
+                expr_type = Some(self.new_node(ExpressionType::Ternary(true_case, false_case)));
             }
             _ => {}
         }
 
-        return Ok(Expression::new(logical_or, expr_type));
+        return Ok(self.new_node(Expression::new(logical_or, expr_type)));
     }
 
-    fn function_expression(&mut self) -> Result<Factor, ParseError> {
+    fn function_expression(&mut self) -> Result<AstNode<Factor>, ParseError> {
+        self.start_node();
+
         self.next_token();
 
         let mut bind_env = None;
@@ -836,10 +1028,12 @@ impl<'a> Parser<'a> {
         let params = self.function_params()?;
         let body = self.statement()?;
 
-        return Ok(Factor::FunctionExpression(bind_env, params, Box::new(body)))
+        return Ok(self.new_node(Factor::FunctionExpression(bind_env, params, body)));
     }
 
-    fn lambda_expression(&mut self) -> Result<Factor, ParseError> {
+    fn lambda_expression(&mut self) -> Result<AstNode<Factor>, ParseError> {
+        self.start_node();
+
         self.next_token();
 
         let mut bind_env = None;
@@ -853,10 +1047,12 @@ impl<'a> Parser<'a> {
         let params = self.function_params()?;
         let body = self.expression()?;
 
-        return Ok(Factor::LambdaExpression(bind_env, params, body))
+        return Ok(self.new_node(Factor::LambdaExpression(bind_env, params, body)));
     }
 
-    fn array_init(&mut self) -> Result<Factor, ParseError> {
+    fn array_init(&mut self) -> Result<AstNode<Factor>, ParseError> {
+        self.start_node();
+
         let mut expressions = Vec::new();
 
         while self.current_token_type() != TokenType::RightSquare {
@@ -869,10 +1065,12 @@ impl<'a> Parser<'a> {
 
         self.next_token();
         
-        return Ok(Factor::ArrayInit(expressions));
+        return Ok(self.new_node(Factor::ArrayInit(expressions)));
     }
 
-    fn class_expression(&mut self) -> Result<ClassExpression, ParseError> {
+    fn class_expression(&mut self) -> Result<AstNode<ClassExpression>, ParseError> {
+        self.start_node();
+
         let mut base_class = None;
         let mut attributes = None;
 
@@ -886,17 +1084,22 @@ impl<'a> Parser<'a> {
         
         let body = self.class_table()?;
 
-        return Ok(ClassExpression::new(base_class, attributes, body));
+        return Ok(self.new_node(ClassExpression::new(base_class, attributes, body)));
     }
 
-    fn class_table(&mut self) -> Result<Table, ParseError> {
+    fn class_table(&mut self) -> Result<AstNode<Table>, ParseError> {
+        self.start_node();
+
         self.expect(TokenType::LeftCurly)?;
 
         let mut entries = Vec::new();
 
         while self.current_token_type() != TokenType::RightCurly {
             if self.current_token_type() == TokenType::AttributeOpen {
-                entries.push(TableEntry::Attributes(self.class_attributes()?));
+                self.start_node();
+                let class_attributes = self.class_attributes()?;
+
+                entries.push(self.new_node(TableEntry::Attributes(class_attributes)));
             }
             if self.current_token_type() == TokenType::Static {
                 self.next_token();
@@ -910,10 +1113,12 @@ impl<'a> Parser<'a> {
         }
         self.next_token();
 
-        return Ok(Table::new(entries));
+        return Ok(self.new_node(Table::new(entries)));
     }
 
-    fn class_attributes(&mut self) -> Result<Table, ParseError> {
+    fn class_attributes(&mut self) -> Result<AstNode<Table>, ParseError> {
+        self.start_node();
+
         self.next_token();
 
         let mut entries = Vec::new();
@@ -927,34 +1132,40 @@ impl<'a> Parser<'a> {
         }
         self.next_token();
 
-        return Ok(Table::new(entries));
+        return Ok(self.new_node(Table::new(entries)));
     }
 
-    fn logical_or_expression(&mut self) -> Result<LogicalOrExpression, ParseError> {
+    fn logical_or_expression(&mut self) -> Result<AstNode<LogicalOrExpression>, ParseError> {
+        self.start_node();
+
         let left = self.logical_and_expression()?;
         let mut right = Vec::new();
 
         while self.current_token_type() == TokenType::LogicalOr {
             self.next_token();
-            right.push(Box::new(self.logical_or_expression()?));
+            right.push(self.logical_or_expression()?);
         }
 
-        return Ok(LogicalOrExpression::new(left, right));
+        return Ok(self.new_node(LogicalOrExpression::new(left, right)));
     }
 
-    fn logical_and_expression(&mut self) -> Result<LogicalAndExpression, ParseError> {
+    fn logical_and_expression(&mut self) -> Result<AstNode<LogicalAndExpression>, ParseError> {
+        self.start_node();
+
         let left = self.bitwise_or_expression()?;
         let mut right = Vec::new();
 
         while self.current_token_type() == TokenType::LogicalAnd {
             self.next_token();
-            right.push(Box::new(self.logical_and_expression()?));
+            right.push(self.logical_and_expression()?);
         }
 
-        return Ok(LogicalAndExpression::new(left, right));
+        return Ok(self.new_node(LogicalAndExpression::new(left, right)));
     }
 
-    fn bitwise_or_expression(&mut self) -> Result<BitwiseOrExpression, ParseError> {
+    fn bitwise_or_expression(&mut self) -> Result<AstNode<BitwiseOrExpression>, ParseError> {
+        self.start_node();
+
         let left = self.bitwise_xor_expression()?;
         let mut right = Vec::new();
 
@@ -963,10 +1174,12 @@ impl<'a> Parser<'a> {
             right.push(self.bitwise_xor_expression()?);
         }
         
-        return Ok(BitwiseOrExpression::new(left, right));
+        return Ok(self.new_node(BitwiseOrExpression::new(left, right)));
     }
 
-    fn bitwise_xor_expression(&mut self) -> Result<BitwiseXorExpression, ParseError> {
+    fn bitwise_xor_expression(&mut self) -> Result<AstNode<BitwiseXorExpression>, ParseError> {
+        self.start_node();
+
         let left = self.bitwise_and_expression()?;
         let mut right = Vec::new();
 
@@ -975,10 +1188,12 @@ impl<'a> Parser<'a> {
             right.push(self.bitwise_and_expression()?);
         }
 
-        return Ok(BitwiseXorExpression::new(left, right));
+        return Ok(self.new_node(BitwiseXorExpression::new(left, right)));
     }
 
-    fn bitwise_and_expression(&mut self) -> Result<BitwiseAndExpression, ParseError> {
+    fn bitwise_and_expression(&mut self) -> Result<AstNode<BitwiseAndExpression>, ParseError> {
+        self.start_node();
+
         let left = self.equal_expression()?;
         let mut right = Vec::new();
 
@@ -987,30 +1202,36 @@ impl<'a> Parser<'a> {
             right.push(self.equal_expression()?);
         }
         
-        return Ok(BitwiseAndExpression::new(left, right));
+        return Ok(self.new_node(BitwiseAndExpression::new(left, right)));
     }
 
-    fn equal_expression(&mut self) -> Result<EqualExpression, ParseError> {
+    fn equal_expression(&mut self) -> Result<AstNode<EqualExpression>, ParseError> {
+        self.start_node();
+
         let left = self.compare_expression()?;
         let mut slices = Vec::new();
 
         loop {
             match self.current_token_type() {
                 TokenType::Equal | TokenType::NotEqual | TokenType::ThreeWayCompare => {
-                    let operator = self.current_token_type();
+                    self.start_node();
+                    self.start_node();
+                    let operator = self.new_node(self.current_token_type());
                     self.next_token();
                     let right = self.compare_expression()?;
 
-                    slices.push(BinaryOpSlice::new(operator, right));
+                    slices.push(self.new_node(BinaryOpSlice::new(operator, right)));
                 }
                 _ => break,
             }
         }
 
-        return Ok(EqualExpression::new(left, slices));
+        return Ok(self.new_node(EqualExpression::new(left, slices)));
     }
 
-    fn compare_expression(&mut self) -> Result<CompareExpression, ParseError> {
+    fn compare_expression(&mut self) -> Result<AstNode<CompareExpression>, ParseError> {
+        self.start_node();
+
         let left = self.shift_expression()?;
         let mut slices = Vec::new();
 
@@ -1018,117 +1239,145 @@ impl<'a> Parser<'a> {
             match self.current_token_type() {
                 TokenType::GreaterThan | TokenType::GreaterOrEqual | TokenType::LessThan 
                     | TokenType::LessOrEqual | TokenType::In | TokenType::Instanceof => {
-                    let operator = self.current_token_type();
+                    self.start_node();
+                    self.start_node();
+                    let operator = self.new_node(self.current_token_type());
                     self.next_token();
                     let right = self.shift_expression()?;
 
-                    slices.push(BinaryOpSlice::new(operator, right));
+                    slices.push(self.new_node(BinaryOpSlice::new(operator, right)));
                 }
                 _ => break,
             }
         }
 
-        return Ok(CompareExpression::new(left, slices));
+        return Ok(self.new_node(CompareExpression::new(left, slices)));
     }
 
-    fn shift_expression(&mut self) -> Result<ShiftExpression, ParseError> {
+    fn shift_expression(&mut self) -> Result<AstNode<ShiftExpression>, ParseError> {
+        self.start_node();
+
         let left = self.plus_expression()?;
         let mut slices = Vec::new();
 
         loop {
             match self.current_token_type() {
                 TokenType::UnsignedShiftRight | TokenType::ShiftLeft | TokenType::ShiftRight => {
-                    let operator = self.current_token_type();
+                    self.start_node();
+                    self.start_node();
+                    let operator = self.new_node(self.current_token_type());
                     self.next_token();
                     let right = self.plus_expression()?;
 
-                    slices.push(BinaryOpSlice::new(operator, right));
+                    slices.push(self.new_node(BinaryOpSlice::new(operator, right)));
                 }
                 _ => break,
             }
         }
 
-        return Ok(ShiftExpression::new(left, slices));
+        return Ok(self.new_node(ShiftExpression::new(left, slices)));
     }
 
-    fn plus_expression(&mut self) -> Result<PlusExpression, ParseError> {
+    fn plus_expression(&mut self) -> Result<AstNode<PlusExpression>, ParseError> {
+        self.start_node();
+
         let left = self.multiply_expression()?;
         let mut slices = Vec::new();
 
         loop {
             match self.current_token_type() {
                 TokenType::Plus | TokenType::Minus => {
-                    let operator = self.current_token_type();
+                    self.start_node();
+                    self.start_node();
+                    let operator = self.new_node(self.current_token_type());
                     self.next_token();
                     let right = self.multiply_expression()?;
 
-                    slices.push(BinaryOpSlice::new(operator, right))
+                    slices.push(self.new_node(BinaryOpSlice::new(operator, right)));
                 }
                 _ => break,
             }
         }
 
-        return Ok(PlusExpression::new(left, slices));
+        return Ok(self.new_node(PlusExpression::new(left, slices)));
     }
 
-    fn multiply_expression(&mut self) -> Result<MultiplyExpression, ParseError> {
+    fn multiply_expression(&mut self) -> Result<AstNode<MultiplyExpression>, ParseError> {
+        self.start_node();
+
         let left = self.prefixed_expression()?;
         let mut slices = Vec::new();
 
         loop {
             match self.current_token_type() {
                 TokenType::Multiply | TokenType::Divide | TokenType::Modulo => {
-                    let operator = self.current_token_type();
+                    self.start_node();
+                    self.start_node();
+                    let operator = self.new_node(self.current_token_type());
                     self.next_token();
                     let right = self.prefixed_expression()?;
 
-                    slices.push(BinaryOpSlice::new(operator, right))
+                    slices.push(self.new_node(BinaryOpSlice::new(operator, right)));
                 }
                 _ => break,
             }
         }
 
-        return Ok(MultiplyExpression::new(left, slices));
+        return Ok(self.new_node(MultiplyExpression::new(left, slices)));
     }
 
-    fn prefixed_expression(&mut self) -> Result<PrefixedExpression, ParseError> {
+    fn prefixed_expression(&mut self) -> Result<AstNode<PrefixedExpression>, ParseError> {
+        self.start_node();
+
         let factor = self.factor()?;
         let mut expr_types = Vec::new();
 
         loop {
             match self.current_token_type() {
                 TokenType::Dot => {
+                    self.start_node();
                     self.next_token();
-                    let id = Identifier::from(self.expect(TokenType::Identifier)?);
+                    self.start_node();
+                    let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
 
-                    expr_types.push(PrefixedExpressionType::DotAccess(id));
+                    let id = self.new_node(identifier);
+
+                    expr_types.push(self.new_node(PrefixedExpressionType::DotAccess(id)));
                 }
                 TokenType::LeftSquare => {
+                    self.start_node();
                     self.next_token();
                     let expression = self.expression()?;
                     self.expect(TokenType::RightSquare)?;
 
-                    expr_types.push(PrefixedExpressionType::ArrayStyleAccess(expression));
+                    expr_types.push(self.new_node(PrefixedExpressionType::ArrayStyleAccess(expression)));
                 }
                 TokenType::PlusPlus => {
-                    expr_types.push(PrefixedExpressionType::PostIncrement);
+                    self.start_node();
+                    expr_types.push(self.new_node(PrefixedExpressionType::PostIncrement));
                     self.next_token();
                 }
                 TokenType::MinusMinus => {
-                    expr_types.push(PrefixedExpressionType::PostDecrement);
+                    self.start_node();
+                    expr_types.push(self.new_node(PrefixedExpressionType::PostDecrement));
                     self.next_token();
                 }
                 TokenType::LeftParen => {
-                    expr_types.push(PrefixedExpressionType::FunctionCall(self.function_call_args()?));
+                    self.start_node();
+                    let function_call_args = self.function_call_args()?;
+
+                    expr_types.push(self.new_node(PrefixedExpressionType::FunctionCall(function_call_args)));
                 }
                 _ => break,
             }
         }
 
-        return Ok(PrefixedExpression::new(factor, expr_types));
+        return Ok(self.new_node(PrefixedExpression::new(factor, expr_types)));
     }
 
-    fn function_call_args(&mut self) -> Result<FunctionCallArgs, ParseError> {
+    fn function_call_args(&mut self) -> Result<AstNode<FunctionCallArgs>, ParseError> {
+        self.start_node();
+
         self.expect(TokenType::LeftParen)?;
         let mut expressions = Vec::new();
         while self.current_token_type() != TokenType::RightParen {
@@ -1147,9 +1396,11 @@ impl<'a> Parser<'a> {
         let mut post_call_init = None;
         // post-call initializer
         if self.current_token_type() == TokenType::LeftCurly {
+            self.start_node();
             self.next_token();
             let mut entries = Vec::new();
             while self.current_token_type() != TokenType::RightCurly {
+                self.start_node();
                 if self.current_token_type() == TokenType::LeftSquare {
                     self.next_token();
                     let comma_expression = self.comma_expression()?;
@@ -1157,13 +1408,16 @@ impl<'a> Parser<'a> {
                     self.expect(TokenType::Assign)?;
                     let expression = self.expression()?;
 
-                    entries.push(PostCallInitializeEntry::ArrayStyle(comma_expression, expression));
+                    entries.push(self.new_node(PostCallInitializeEntry::ArrayStyle(comma_expression, expression)));
                 } else {
+                    self.start_node();
                     let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
+                    
+                    let identifier = self.new_node(identifier);
                     self.expect(TokenType::Assign)?;
                     let expression = self.expression()?;
 
-                    entries.push(PostCallInitializeEntry::TableStyle(identifier, expression))
+                    entries.push(self.new_node(PostCallInitializeEntry::TableStyle(identifier, expression)));
                 }
 
                 if self.current_token_type() == TokenType::Comma {
@@ -1171,35 +1425,29 @@ impl<'a> Parser<'a> {
                 }
             }
             self.next_token();
-            post_call_init = Some(PostCallInitialize::new(entries));
+            post_call_init = Some(self.new_node(PostCallInitialize::new(entries)));
         }
 
-        return Ok(FunctionCallArgs::new(expressions, post_call_init));
+        return Ok(self.new_node(FunctionCallArgs::new(expressions, post_call_init)));
     }
 
-    fn comma_expression(&mut self) -> Result<CommaExpression, ParseError> {
+    fn comma_expression(&mut self) -> Result<AstNode<CommaExpression>, ParseError> {
+        self.start_node();
+
         let mut expressions = vec![self.expression()?];
         while self.current_token_type() == TokenType::Comma {
             self.next_token();
             expressions.push(self.expression()?);
         }
 
-        return Ok(CommaExpression::new(expressions));
+        return Ok(self.new_node(CommaExpression::new(expressions)));
     }
 
-    fn unary_op(&mut self, operator: TokenType) -> Result<UnaryOp, ParseError> {
-        /*match self.current_token_type() {
-            TokenType::Minus | TokenType::BitwiseNot | TokenType::LogicalNot | TokenType::Typeof
-            | TokenType::Resume | TokenType::Clone | TokenType::PlusPlus | TokenType::MinusMinus => {
-                operator = self.current_token_type();
-            }
-            token_type => {
-                return Err(self.build_error(format!("unary op with unhandled token '{}'", token_type)));
-            }
-        }*/
-        // self.next_token();
+    fn unary_op(&mut self, operator: AstNode<TokenType>) -> Result<AstNode<UnaryOp>, ParseError> {
+        self.start_node();
+
         let expression = self.prefixed_expression()?;
 
-        return Ok(UnaryOp::new(operator, expression));
+        return Ok(self.new_node(UnaryOp::new(operator, expression)));
     }
 }

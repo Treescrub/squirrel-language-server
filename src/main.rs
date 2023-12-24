@@ -7,6 +7,7 @@ mod ast;
 mod visitors;
 mod source_info;
 
+use ast::AstNode;
 use document_manager::DocumentManager;
 use parser::ParseError;
 use serde_json::Value;
@@ -26,7 +27,7 @@ struct Backend {
 }
 
 impl Backend {
-    async fn handle_parse_result(&self, result: std::result::Result<ast::Script, ParseError>, uri: Url, version: i32) {
+    async fn handle_parse_result(&self, result: std::result::Result<AstNode<ast::Script>, ParseError>, uri: Url, version: i32) {
         match result {
             Ok(script) => {
                 self.client.log_message(MessageType::INFO, "Successfully parsed").await;
@@ -192,7 +193,6 @@ impl LanguageServer for Backend {
         let mut parser: Parser = Parser::new(&lexer.tokens);
         let parse_result = parser.parse();
         self.handle_parse_result(parse_result, params.text_document.uri.clone(), params.text_document.version).await;
-
         /*self.client
             .log_message(MessageType::INFO, format!("contents: {}", state.doc_manager.get(&params.text_document.uri).unwrap()))
             .await;*/
