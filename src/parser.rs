@@ -161,8 +161,6 @@ impl<'a> Parser<'a> {
     }
 
     fn statement(&mut self) -> Result<AstNode<Statement>, ParseError> {
-        self.start_node();
-
         match self.current_token_type() {
             TokenType::If => {
                 return self.if_statement();
@@ -183,11 +181,15 @@ impl<'a> Parser<'a> {
                 return self.switch_statement();
             }
             TokenType::Local => {
+                self.start_node();
+
                 let local_declare = self.local_declare()?;
 
                 return Ok(self.new_node(Statement::LocalDeclare(local_declare)));
             }
             TokenType::Return => {
+                self.start_node();
+
                 self.next_token();
                 if !self.is_end_of_statement() {
                     let comma_expression = self.comma_expression()?;
@@ -198,6 +200,8 @@ impl<'a> Parser<'a> {
                 }
             }
             TokenType::Yield => {
+                self.start_node();
+
                 self.next_token();
                 if !self.is_end_of_statement() {
                     let comma_expression = self.comma_expression()?;
@@ -208,10 +212,14 @@ impl<'a> Parser<'a> {
                 }
             }
             TokenType::Break => {
+                self.start_node();
+
                 self.next_token();
                 return Ok(self.new_node(Statement::Break));
             }
             TokenType::Continue => {
+                self.start_node();
+
                 self.next_token();
                 return Ok(self.new_node(Statement::Continue));
             }
@@ -231,6 +239,8 @@ impl<'a> Parser<'a> {
                 return self.try_statement();
             }
             TokenType::Throw => {
+                self.start_node();
+
                 self.next_token();
                 let comma_expression = self.comma_expression()?;
 
@@ -240,6 +250,8 @@ impl<'a> Parser<'a> {
                 return self.const_statement();
             }
             _ => {
+                self.start_node();
+                
                 let comma_expression = self.comma_expression()?;
 
                 return Ok(self.new_node(Statement::CommaExpression(comma_expression)));
@@ -684,10 +696,9 @@ impl<'a> Parser<'a> {
     }
 
     fn factor(&mut self) -> Result<AstNode<Factor>, ParseError> {
-        self.start_node();
-
         match self.current_token_type() {
             TokenType::StringLiteral => {
+                self.start_node();
                 self.start_node();
                 let value = self.current_token().svalue.as_ref().unwrap().to_string();
                 self.next_token();
@@ -698,28 +709,34 @@ impl<'a> Parser<'a> {
                 return Ok(self.new_node(scalar));
             }
             TokenType::Base => {
+                self.start_node();
                 self.next_token();
 
                 return Ok(self.new_node(Factor::Base));
             }
             TokenType::Identifier => {
                 self.start_node();
+                self.start_node();
+
                 let identifier = self.new_node(Identifier::from(self.current_token()));
                 self.next_token();
 
                 return Ok(self.new_node(Factor::Identifier(identifier)));
             }
             TokenType::Constructor => {
+                self.start_node();
                 self.next_token();
 
                 return Ok(self.new_node(Factor::Constructor));
             }
             TokenType::This => {
+                self.start_node();
                 self.next_token();
 
                 return Ok(self.new_node(Factor::This));
             }
             TokenType::DoubleColon => {
+                self.start_node();
                 self.next_token();
 
                 let prefixed_expr = self.prefixed_expression()?;
@@ -727,12 +744,15 @@ impl<'a> Parser<'a> {
                 return Ok(self.new_node(Factor::DoubleColon(prefixed_expr)));
             }
             TokenType::Null => {
+                self.start_node();
                 self.next_token();
 
                 return Ok(self.new_node(Factor::Null));
             }
             TokenType::IntegerLiteral => {
                 self.start_node();
+                self.start_node();
+
                 let value = self.new_node(Scalar::Integer(self.current_token().nvalue.unwrap()));
                 self.next_token();
 
@@ -740,12 +760,15 @@ impl<'a> Parser<'a> {
             }
             TokenType::FloatLiteral => {
                 self.start_node();
+                self.start_node();
+
                 let value = self.new_node(Scalar::Float(self.current_token().fvalue.unwrap()));
                 self.next_token();
 
                 return Ok(self.new_node(Factor::Scalar(value)));
             }
             TokenType::True => {
+                self.start_node();
                 self.start_node();
                 self.next_token();
 
@@ -754,6 +777,7 @@ impl<'a> Parser<'a> {
                 return Ok(self.new_node(Factor::Scalar(true_scalar)));
             }
             TokenType::False => {
+                self.start_node();
                 self.start_node();
                 self.next_token();
 
@@ -767,6 +791,7 @@ impl<'a> Parser<'a> {
                 return Ok(self.array_init()?);
             }
             TokenType::LeftCurly => {
+                self.start_node();
                 let table = self.table()?;
 
                 return Ok(self.new_node(Factor::TableInit(table)));
@@ -778,6 +803,7 @@ impl<'a> Parser<'a> {
                 return self.lambda_expression();
             }
             TokenType::Class => {
+                self.start_node();
                 self.next_token();
                 
                 let class_expression = self.class_expression()?;
@@ -786,12 +812,15 @@ impl<'a> Parser<'a> {
             }
             TokenType::Minus => {
                 self.start_node();
+                self.start_node();
                 self.next_token();
+
                 let minus = self.new_node(TokenType::Minus);
 
                 match self.current_token_type() {
                     TokenType::IntegerLiteral => {
                         self.start_node();
+
                         let value = self.new_node(Scalar::Integer(self.current_token().nvalue.unwrap()));
                         self.next_token();
 
@@ -799,12 +828,14 @@ impl<'a> Parser<'a> {
                     }
                     TokenType::FloatLiteral => {
                         self.start_node();
+
                         let value = self.new_node(Scalar::Float(self.current_token().fvalue.unwrap()));
                         self.next_token();
 
                         return Ok(self.new_node(Factor::Scalar(value)));
                     }
                     _ => {
+
                         let unary_op = self.unary_op(minus)?;
 
                         return Ok(self.new_node(Factor::UnaryOp(unary_op)));
@@ -814,6 +845,8 @@ impl<'a> Parser<'a> {
             TokenType::LogicalNot | TokenType::BitwiseNot | TokenType::Typeof | TokenType::Resume | TokenType::Clone
                 | TokenType::MinusMinus | TokenType::PlusPlus => {
                 self.start_node();
+                self.start_node();
+
                 let operator = self.new_node(self.current_token_type());
                 self.next_token();
 
@@ -822,6 +855,7 @@ impl<'a> Parser<'a> {
                 return Ok(self.new_node(Factor::UnaryOp(unary_op)));
             }
             TokenType::Rawcall => {
+                self.start_node();
                 self.next_token();
 
                 let function_call_args = self.function_call_args()?;
@@ -829,24 +863,30 @@ impl<'a> Parser<'a> {
                 return Ok(self.new_node(Factor::RawCall(function_call_args)));
             }
             TokenType::Delete => {
+                self.start_node();
                 self.next_token();
+
                 let prefixed_expression = self.prefixed_expression()?;
 
                 return Ok(self.new_node(Factor::Delete(prefixed_expression)));
             }
             TokenType::LeftParen => {
+                self.start_node();
                 self.next_token();
+
                 let comma_expression = self.comma_expression()?;
                 self.expect(TokenType::RightParen)?;
 
                 return Ok(self.new_node(Factor::ParenExpression(comma_expression)));
             }
             TokenType::LineInfo => {
+                self.start_node();
                 self.next_token();
 
                 return Ok(self.new_node(Factor::LineInfo));
             }
             TokenType::FileInfo => {
+                self.start_node();
                 self.next_token();
 
                 return Ok(self.new_node(Factor::FileInfo));
@@ -871,10 +911,9 @@ impl<'a> Parser<'a> {
     }
 
     fn table_entry(&mut self, is_class: bool) -> Result<AstNode<TableEntry>, ParseError> {
-        self.start_node();
-
         match self.current_token_type() {
             TokenType::Function => {
+                self.start_node();
                 self.next_token();
 
                 self.start_node();
@@ -887,14 +926,18 @@ impl<'a> Parser<'a> {
                 return Ok(self.new_node(TableEntry::Function(key, params, body)));
             },
             TokenType::Constructor => {
+                self.start_node();
                 self.next_token();
+
                 let params = self.function_params()?;
                 let body = self.statement()?;
 
                 return Ok(self.new_node(TableEntry::Constructor(params, body)));
             },
             TokenType::LeftSquare => {
+                self.start_node();
                 self.next_token();
+
                 let key = self.comma_expression()?;
                 self.expect(TokenType::RightSquare)?;
                 self.expect(TokenType::Assign)?;
@@ -904,6 +947,8 @@ impl<'a> Parser<'a> {
             },
             TokenType::StringLiteral => {
                 if !is_class {
+                    self.start_node();
+                    
                     let key = self.current_token().svalue.as_ref().unwrap().clone();
                     self.next_token();
                     self.expect(TokenType::Colon)?;
@@ -922,7 +967,6 @@ impl<'a> Parser<'a> {
 
     fn table(&mut self) -> Result<AstNode<Table>, ParseError> {
         self.start_node();
-
         self.next_token();
 
         let mut entries = Vec::new();
@@ -960,45 +1004,51 @@ impl<'a> Parser<'a> {
         let logical_or = self.logical_or_expression()?;
         let mut expr_type = None;
 
-        self.start_node();
         match self.current_token_type() {
             TokenType::Newslot => {
+                self.start_node();
                 self.next_token();
                 let expression = self.expression()?;
 
                 expr_type = Some(self.new_node(ExpressionType::Newslot(expression)));
             }
             TokenType::Assign => {
+                self.start_node();
                 self.next_token();
                 let expression = self.expression()?;
 
                 expr_type = Some(self.new_node(ExpressionType::Assign(expression)));
             }
             TokenType::MinusEqual => {
+                self.start_node();
                 self.next_token();
                 let expression = self.expression()?;
 
                 expr_type = Some(self.new_node(ExpressionType::MinusEqual(expression)));
             }
             TokenType::PlusEqual => {
+                self.start_node();
                 self.next_token();
                 let expression = self.expression()?;
 
                 expr_type = Some(self.new_node(ExpressionType::PlusEqual(expression)));
             }
             TokenType::MultiplyEqual => {
+                self.start_node();
                 self.next_token();
                 let expression = self.expression()?;
 
                 expr_type = Some(self.new_node(ExpressionType::MultiplyEqual(expression)));
             }
             TokenType::DivideEqual => {
+                self.start_node();
                 self.next_token();
                 let expression = self.expression()?;
 
                 expr_type = Some(self.new_node(ExpressionType::DivideEqual(expression)));
             }
             TokenType::Ternary => {
+                self.start_node();
                 self.next_token();
                 let true_case = self.expression()?;
                 self.expect(TokenType::Colon)?;
@@ -1215,6 +1265,7 @@ impl<'a> Parser<'a> {
             match self.current_token_type() {
                 TokenType::Equal | TokenType::NotEqual | TokenType::ThreeWayCompare => {
                     self.start_node();
+                    
                     self.start_node();
                     let operator = self.new_node(self.current_token_type());
                     self.next_token();
@@ -1240,6 +1291,7 @@ impl<'a> Parser<'a> {
                 TokenType::GreaterThan | TokenType::GreaterOrEqual | TokenType::LessThan 
                     | TokenType::LessOrEqual | TokenType::In | TokenType::Instanceof => {
                     self.start_node();
+
                     self.start_node();
                     let operator = self.new_node(self.current_token_type());
                     self.next_token();
@@ -1264,6 +1316,7 @@ impl<'a> Parser<'a> {
             match self.current_token_type() {
                 TokenType::UnsignedShiftRight | TokenType::ShiftLeft | TokenType::ShiftRight => {
                     self.start_node();
+
                     self.start_node();
                     let operator = self.new_node(self.current_token_type());
                     self.next_token();
@@ -1288,6 +1341,7 @@ impl<'a> Parser<'a> {
             match self.current_token_type() {
                 TokenType::Plus | TokenType::Minus => {
                     self.start_node();
+
                     self.start_node();
                     let operator = self.new_node(self.current_token_type());
                     self.next_token();
@@ -1312,6 +1366,7 @@ impl<'a> Parser<'a> {
             match self.current_token_type() {
                 TokenType::Multiply | TokenType::Divide | TokenType::Modulo => {
                     self.start_node();
+
                     self.start_node();
                     let operator = self.new_node(self.current_token_type());
                     self.next_token();
@@ -1336,6 +1391,7 @@ impl<'a> Parser<'a> {
             match self.current_token_type() {
                 TokenType::Dot => {
                     self.start_node();
+
                     self.next_token();
                     self.start_node();
                     let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
@@ -1346,6 +1402,7 @@ impl<'a> Parser<'a> {
                 }
                 TokenType::LeftSquare => {
                     self.start_node();
+
                     self.next_token();
                     let expression = self.expression()?;
                     self.expect(TokenType::RightSquare)?;
@@ -1354,16 +1411,19 @@ impl<'a> Parser<'a> {
                 }
                 TokenType::PlusPlus => {
                     self.start_node();
+
                     expr_types.push(self.new_node(PrefixedExpressionType::PostIncrement));
                     self.next_token();
                 }
                 TokenType::MinusMinus => {
                     self.start_node();
+
                     expr_types.push(self.new_node(PrefixedExpressionType::PostDecrement));
                     self.next_token();
                 }
                 TokenType::LeftParen => {
                     self.start_node();
+
                     let function_call_args = self.function_call_args()?;
 
                     expr_types.push(self.new_node(PrefixedExpressionType::FunctionCall(function_call_args)));
@@ -1412,7 +1472,7 @@ impl<'a> Parser<'a> {
                 } else {
                     self.start_node();
                     let identifier = Identifier::from(self.expect(TokenType::Identifier)?);
-                    
+
                     let identifier = self.new_node(identifier);
                     self.expect(TokenType::Assign)?;
                     let expression = self.expression()?;
