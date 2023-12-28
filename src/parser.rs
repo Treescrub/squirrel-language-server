@@ -59,7 +59,21 @@ impl<'a> Parser<'a> {
     }
 
     fn new_node<T>(&mut self, value: T) -> AstNode<T> {
-        let range = SourceRange::new(self.tokens.get(self.node_start.pop().unwrap()).unwrap().range.start, self.tokens.get(self.token_index).unwrap().range.end);
+        let mut end_index = self.token_index;
+        loop {
+            let token_type = self.tokens.get(end_index).unwrap().token_type;
+            if token_type != TokenType::NewLine && token_type != TokenType::EndOfTokens {
+                break;
+            }
+
+            if end_index == 0 {
+                break;
+            }
+
+            end_index -= 1;
+        }
+
+        let range = SourceRange::new(self.tokens.get(self.node_start.pop().unwrap()).unwrap().range.start, self.tokens.get(end_index).unwrap().range.end);
 
         return AstNode::new(range, value);
     }
