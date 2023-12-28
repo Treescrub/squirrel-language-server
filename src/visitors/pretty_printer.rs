@@ -38,6 +38,7 @@ impl PrettyPrinter {
 
 impl SimpleVisitorMut for PrettyPrinter {
     fn visit_script(&mut self, script: AstNode<Script>) {
+        self.print(&script.range.to_string());
         self.print(&format!("SCRIPT: {} statement(s)", script.value.statements.value.statements.len()));
 
         self.push_level();
@@ -46,6 +47,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_statements(&mut self, statements: AstNode<Statements>) {
+        self.print(&statements.range.to_string());
         self.print("STATEMENTS");
 
         for statement in statements.value.statements {
@@ -56,6 +58,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_statement(&mut self, statement: AstNode<Statement>) {
+        self.print(&statement.range.to_string());
         self.print("STATEMENT");
 
         self.push_level();
@@ -240,6 +243,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_func_params(&mut self, params: AstNode<FunctionParams>) {
+        self.print(&params.range.to_string());
         self.print("FUNC PARAMS");
 
         self.push_level();
@@ -250,6 +254,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_func_param(&mut self, param: AstNode<FunctionParam>) {
+        self.print(&param.range.to_string());
         self.print("FUNC PARAM");
         
         self.push_level();
@@ -277,6 +282,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_local_declare(&mut self, local_declare: AstNode<LocalDeclare>) {
+        self.print(&local_declare.range.to_string());
         match *local_declare.value {
             LocalDeclare::Function(identifier, bind_env, params, body) => {
                 self.print("FUNCTION");
@@ -303,6 +309,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_assign_expr(&mut self, assign_expr: AstNode<AssignExpression>) {
+        self.print(&assign_expr.range.to_string());
         self.print("ASSIGN EXPRESSION");
 
         self.push_level();
@@ -314,6 +321,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_for_init(&mut self, for_init: AstNode<ForInit>) {
+        self.print(&for_init.range.to_string());
         self.print("FOR INIT");
 
         self.push_level();
@@ -333,6 +341,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_unary_op(&mut self, unary_op: AstNode<UnaryOp>) {
+        self.print(&unary_op.range.to_string());
         self.print("UNARY OP");
 
         self.push_level();
@@ -344,6 +353,7 @@ impl SimpleVisitorMut for PrettyPrinter {
         if logical_or.value.right.is_empty() {
             self.visit_logical_and_exp(logical_or.value.left);
         } else {
+            self.print(&logical_or.range.to_string());
             self.print("LOGICAL OR");
 
             self.push_level();
@@ -359,6 +369,7 @@ impl SimpleVisitorMut for PrettyPrinter {
         if logical_and.value.right.is_empty() {
             self.visit_bitwise_or_exp(logical_and.value.left);
         } else {
+            self.print(&logical_and.range.to_string());
             self.print("LOGICAL AND");
 
             self.push_level();
@@ -374,6 +385,7 @@ impl SimpleVisitorMut for PrettyPrinter {
         if bitwise_or.value.right.is_empty() {
             self.visit_bitwise_xor_exp(bitwise_or.value.left);
         } else {
+            self.print(&bitwise_or.range.to_string());
             self.print("BITWISE OR");
 
             self.push_level();
@@ -389,6 +401,7 @@ impl SimpleVisitorMut for PrettyPrinter {
         if bitwise_xor.value.right.is_empty() {
             self.visit_bitwise_and_exp(bitwise_xor.value.left);
         } else {
+            self.print(&bitwise_xor.range.to_string());
             self.print("BITWISE XOR");
 
             self.push_level();
@@ -404,6 +417,7 @@ impl SimpleVisitorMut for PrettyPrinter {
         if bitwise_and.value.right.is_empty() {
             self.visit_equal_exp(bitwise_and.value.left);
         } else {
+            self.print(&bitwise_and.range.to_string());
             self.print("BITWISE AND");
 
             self.push_level();
@@ -419,6 +433,7 @@ impl SimpleVisitorMut for PrettyPrinter {
         if equal.value.slices.is_empty() {
             self.visit_compare_exp(equal.value.left);
         } else {
+            self.print(&equal.range.to_string());
             self.print("EQUAL");
 
             self.push_level();
@@ -434,6 +449,7 @@ impl SimpleVisitorMut for PrettyPrinter {
         if compare.value.slices.is_empty() {
             self.visit_shift_exp(compare.value.left);
         } else {
+            self.print(&compare.range.to_string());
             self.print("COMPARE");
 
             self.push_level();
@@ -449,6 +465,7 @@ impl SimpleVisitorMut for PrettyPrinter {
         if shift.value.slices.is_empty() {
             self.visit_plus_exp(shift.value.left);
         } else {
+            self.print(&shift.range.to_string());
             self.print("SHIFT");
 
             self.push_level();
@@ -464,6 +481,7 @@ impl SimpleVisitorMut for PrettyPrinter {
         if plus.value.slices.is_empty() {
             self.visit_multiply_exp(plus.value.left);
         } else {
+            self.print(&plus.range.to_string());
             self.print("PLUS");
 
             self.push_level();
@@ -479,6 +497,7 @@ impl SimpleVisitorMut for PrettyPrinter {
         if multiply.value.slices.is_empty() {
             self.visit_prefixed_exp(multiply.value.left);
         } else {
+            self.print(&multiply.range.to_string());
             self.print("MULTIPLY");
 
             self.push_level();
@@ -494,6 +513,7 @@ impl SimpleVisitorMut for PrettyPrinter {
         if prefixed.value.expr_types.is_empty() {
             self.visit_factor(prefixed.value.factor);
         } else {
+            self.print(&prefixed.range.to_string());
             self.print("PREFIXED");
 
             self.push_level();
@@ -540,12 +560,14 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_table(&mut self, table: AstNode<Table>) {
+        self.print(&table.range.to_string());
         for entry in table.value.entries {
             self.visit_table_entry(entry);
         }
     }
 
     fn visit_table_entry(&mut self, entry: AstNode<TableEntry>) {
+        self.print(&entry.range.to_string());
         self.print("TABLE ENTRY");
 
         self.push_level();
@@ -602,6 +624,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_factor(&mut self, factor: AstNode<Factor>) {
+        self.print(&factor.range.to_string());
         self.print("FACTOR");
 
         self.push_level();
@@ -716,6 +739,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_expression(&mut self, expression: AstNode<Expression>) {
+        self.print(&expression.range.to_string());
         self.print("EXPRESSION");
 
         self.push_level();
@@ -779,6 +803,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_scalar(&mut self, scalar: AstNode<Scalar>) {
+        self.print(&scalar.range.to_string());
         match *scalar.value {
             Scalar::Integer(value) => self.print(&format!("INTEGER: {}", value)),
             Scalar::Float(value) => self.print(&format!("FLOAT: {}", value)),
@@ -789,6 +814,7 @@ impl SimpleVisitorMut for PrettyPrinter {
     }
 
     fn visit_identifier(&mut self, identifier: AstNode<Identifier>) {
+        self.print(&identifier.range.to_string());
         self.print(&format!("IDENTIFIER: {}", identifier.value.value));
     }
 }
