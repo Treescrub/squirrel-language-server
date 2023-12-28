@@ -1,5 +1,4 @@
 use std::fmt::Display;
-use std::process::id;
 
 use crate::ast::*;
 use crate::lexer::*;
@@ -30,19 +29,6 @@ pub struct Parser<'a> {
     tokens: &'a Vec<Token>,
     token_index: usize,
     node_start: Vec<usize>,
-}
-
-impl<'a> Parser<'a> {
-    fn wrap_node<T>(&mut self, non_terminal: &dyn Fn(&mut Self) -> Result<T, ParseError>) -> Result<AstNode<T>, ParseError> {
-        let start_index = self.token_index;
-
-        let result = non_terminal(self)?;
-
-        let end_index = self.token_index;
-        let range = SourceRange::new(self.tokens.get(start_index).unwrap().range.start, self.tokens.get(end_index).unwrap().range.end);
-
-        return Ok(AstNode::new(range, result));
-    }
 }
 
 impl<'a> Parser<'a> {
@@ -85,10 +71,6 @@ impl<'a> Parser<'a> {
         return stacker::grow(100 * 1024 * 1024, || {
             return Ok(self.script()?);
         });
-    }
-
-    pub fn reset(&mut self) {
-        self.token_index = 0;
     }
 
     fn ignore_newlines(&mut self) {
