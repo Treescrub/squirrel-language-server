@@ -159,9 +159,6 @@ impl LanguageServer for Backend {
         self.client
             .log_message(MessageType::INFO, "file opened!")
             .await;
-        /*self.client
-            .log_message(MessageType::INFO, format!("tokens:\n{}", tokens))
-            .await;*/
         
         let mut parser: Parser = Parser::new(&lexer.tokens);
         let parse_result = parser.parse();
@@ -169,9 +166,7 @@ impl LanguageServer for Backend {
         
         let mut state = self.state.lock().await;
         state.doc_manager.open_file(&params.text_document.text, &params.text_document.uri);
-        /*self.client
-            .log_message(MessageType::INFO, format!("contents: {}", state.doc_manager.get(&params.text_document.uri).unwrap()))
-            .await;*/
+
         self.client
             .log_message(MessageType::INFO, format!("open files: {}", state.doc_manager.total_open_files()))
             .await;
@@ -193,9 +188,6 @@ impl LanguageServer for Backend {
         let mut parser: Parser = Parser::new(&lexer.tokens);
         let parse_result = parser.parse();
         self.handle_parse_result(parse_result, params.text_document.uri.clone(), params.text_document.version).await;
-        /*self.client
-            .log_message(MessageType::INFO, format!("contents: {}", state.doc_manager.get(&params.text_document.uri).unwrap()))
-            .await;*/
     }
 
     async fn did_save(&self, _params: DidSaveTextDocumentParams) {
