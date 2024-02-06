@@ -35,7 +35,7 @@ impl Backend {
 
                 let mut pretty_printer = PrettyPrinter::new();
 
-                pretty_printer.visit_script(script);
+                pretty_printer.visit_script(&script);
                 self.client.log_message(MessageType::INFO, "Pretty printer:").await;
                 self.client.log_message(MessageType::LOG, pretty_printer.text).await;
             }

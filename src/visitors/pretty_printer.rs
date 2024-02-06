@@ -37,504 +37,404 @@ impl PrettyPrinter {
 }
 
 impl SimpleVisitorMut for PrettyPrinter {
-    fn visit_script(&mut self, script: AstNode<Script>) {
+    fn visit_script(&mut self, script: &AstNode<Script>) {
         self.print(&script.range.to_string());
         self.print(&format!("SCRIPT: {} statement(s)", script.value.statements.value.statements.len()));
 
         self.push_level();
-        self.visit_statements(script.value.statements);
+        self.walk_script(script);
         self.pop_level();
     }
 
-    fn visit_statements(&mut self, statements: AstNode<Statements>) {
+    fn visit_statements(&mut self, statements: &AstNode<Statements>) {
         self.print(&statements.range.to_string());
         self.print("STATEMENTS");
 
-        for statement in statements.value.statements {
-            self.push_level();
-            self.visit_statement(statement);
-            self.pop_level();
-        }
+        self.push_level();
+        self.walk_statements(statements);
+        self.pop_level();
     }
 
-    fn visit_statement(&mut self, statement: AstNode<Statement>) {
+    fn visit_statement(&mut self, statement: &AstNode<Statement>) {
         self.print(&statement.range.to_string());
         self.print("STATEMENT");
 
         self.push_level();
-        match *statement.value {
-            Statement::Break => {
-                self.print("BREAK");
-            }
-            Statement::Continue => {
-                self.print("CONTINUE");
-            }
-            Statement::Const(id, _scalar) => {
-                self.print("CONST");
-
-                self.push_level();
-                self.visit_identifier(id);
-                self.pop_level();
-            }
-            Statement::StatementBlock(statements) => {
-                self.print("STATEMENT BLOCK");
-
-                self.push_level();
-                self.visit_statements(statements);
-                self.pop_level();
-            }
-            Statement::If(condition, if_block, else_block) => {
-                self.print("IF");
-
-                self.push_level();
-                self.visit_comma_expr(condition);
-                self.visit_statement(if_block);
-                if else_block.is_some() {
-                    self.visit_statement(else_block.unwrap());
-                }
-                self.pop_level();
-            }
-            Statement::CommaExpression(comma_expression) => {
-                self.print("COMMA EXPRESSION");
-
-                self.push_level();
-                for expression in comma_expression.value.expressions {
-                    self.visit_expression(expression);
-                }
-                self.pop_level();
-            }
-            Statement::Class(name, body) => {
-                self.print("CLASS");
-
-                self.push_level();
-                self.visit_prefixed_exp(name);
-                self.visit_class_expr(body);
-                self.pop_level();
-            }
-            Statement::Function(identifier, bind_env, params, body) => {
-                self.print("FUNCTION");
-
-                self.push_level();
-                for identifier in identifier.value.identifiers {
-                    self.visit_identifier(identifier);
-                }
-                if let Some(bind_env) = bind_env {
-                    self.visit_expression(bind_env);
-                }
-                self.visit_func_params(params);
-                self.visit_statement(body);
-                self.pop_level();
-            }
-            Statement::While(condition, body) => {
-                self.print("WHILE");
-
-                self.push_level();
-                self.visit_comma_expr(condition);
-                self.visit_statement(body);
-                self.pop_level();
-            },
-            Statement::DoWhile(body, condition) => {
-                self.print("DO WHILE");
-
-                self.push_level();
-                self.visit_statement(body);
-                self.visit_comma_expr(condition);
-                self.pop_level();
-            },
-            Statement::For(init, condition, post, body) => {
-                self.print("FOR");
-
-                self.push_level();
-                if let Some(init) = init {
-                    self.visit_for_init(init);
-                }
-                if let Some(condition) = condition {
-                    self.visit_comma_expr(condition);
-                }
-                if let Some(post) = post {
-                    self.visit_comma_expr(post);
-                }
-                self.visit_statement(body);
-                self.pop_level();
-            },
-            Statement::ForEach(value, key, container, body) => {
-                self.print("FOR EACH");
-
-                self.push_level();
-                self.visit_identifier(value);
-                if let Some(key) = key {
-                    self.visit_identifier(key);
-                }
-                self.visit_expression(container);
-                self.visit_statement(body);
-                self.pop_level();
-            },
-            Statement::Switch(value, cases, default) => {
-                self.print("SWITCH");
-
-                self.push_level();
-                self.visit_comma_expr(value);
-                for case in cases {
-                    self.visit_expression(case.value.condition);
-                    self.visit_statements(case.value.body);
-                }
-                if let Some(default) = default {
-                    self.visit_statements(default);
-                }
-                self.pop_level();
-            },
-            Statement::LocalDeclare(local_declare) => {
-                self.print("LOCAL DECLARE");
-
-                self.push_level();
-                self.visit_local_declare(local_declare);
-                self.pop_level();
-            },
-            Statement::Return(value) => {
-                self.print("RETURN");
-
-                self.push_level();
-                if let Some(value) = value {
-                    self.visit_comma_expr(value);
-                }
-                self.pop_level();
-            },
-            Statement::Yield(value) => {
-                self.print("YIELD");
-
-                self.push_level();
-                if let Some(value) = value {
-                    self.visit_comma_expr(value);
-                }
-                self.pop_level();
-            },
-            Statement::Enum(identifier, values) => {
-                self.print("ENUM");
-
-                self.push_level();
-                self.visit_identifier(identifier);
-                for entry in values.value.values {
-                    self.visit_identifier(entry.value.key);
-                    if let Some(value) = entry.value.value {
-                        self.visit_scalar(value);
-                    }
-                }
-                self.pop_level();
-            },
-            Statement::TryCatch(try_body, exception_id, catch_body) => {
-                self.print("TRY CATCH");
-
-                self.push_level();
-                self.visit_statement(try_body);
-                self.visit_identifier(exception_id);
-                self.visit_statement(catch_body);
-                self.pop_level();
-            },
-            Statement::Throw(value) => {
-                self.print("THROW");
-
-                self.push_level();
-                self.visit_comma_expr(value);
-                self.pop_level();
-            },
-        }
-
+        self.walk_statement(statement);
         self.pop_level();
     }
 
-    fn visit_func_params(&mut self, params: AstNode<FunctionParams>) {
+    fn visit_break_statement(&mut self) {
+        self.print("BREAK");
+    }
+
+    fn visit_continue_statement(&mut self) {
+        self.print("CONTINUE");
+    }
+
+    fn visit_const_statement(&mut self, name: &AstNode<Identifier>, value: &AstNode<Scalar>) {
+        self.print("CONST");
+
+        self.push_level();
+        self.walk_const_statement(name, value);
+        self.pop_level();
+    }
+
+    fn visit_statement_block(&mut self, statements: &AstNode<Statements>) {
+        self.print("STATEMENT BLOCK");
+
+        self.push_level();
+        self.walk_statement_block(statements);
+        self.pop_level();
+    }
+
+    fn visit_if_statement(&mut self, condition: &AstNode<CommaExpression>, if_block: &AstNode<Statement>, else_block: &Option<AstNode<Statement>>) {
+        self.print("IF");
+
+        self.push_level();
+        self.walk_if_statement(condition, if_block, else_block);
+        self.pop_level();
+    }
+
+    fn visit_comma_expr_statement(&mut self, comma_expr: &AstNode<CommaExpression>) {
+        self.print("COMMA EXPRESSION");
+
+        self.push_level();
+        self.walk_comma_expr_statement(comma_expr);
+        self.pop_level();
+    }
+
+    fn visit_class_statement(&mut self, name: &AstNode<PrefixedExpression>, class_expr: &AstNode<ClassExpression>) {
+        self.print("CLASS");
+
+        self.push_level();
+        self.walk_class_statement(name, class_expr);
+        self.pop_level();
+    }
+
+    fn visit_function_statement(&mut self, func_identifier: &AstNode<FunctionIdentifier>, env: &Option<AstNode<Expression>>, params: &AstNode<FunctionParams>, body: &AstNode<Statement>) {
+        self.print("FUNCTION");
+
+        self.push_level();
+        self.walk_function_statement(func_identifier, env, params, body);
+        self.pop_level();
+    }
+
+    fn visit_while_statement(&mut self, condition: &AstNode<CommaExpression>, loop_body: &AstNode<Statement>) {
+        self.print("WHILE");
+
+        self.push_level();
+        self.walk_while_statement(condition, loop_body);
+        self.pop_level();
+    }
+
+    fn visit_do_while_statement(&mut self, loop_body: &AstNode<Statement>, condition: &AstNode<CommaExpression>) {
+        self.print("DO WHILE");
+
+        self.push_level();
+        self.walk_do_while_statement(loop_body, condition);
+        self.pop_level();
+    }
+
+    fn visit_for_statement(&mut self, init: &Option<AstNode<ForInit>>, condition: &Option<AstNode<CommaExpression>>, post: &Option<AstNode<CommaExpression>>, body: &AstNode<Statement>) {
+        self.print("FOR");
+
+        self.push_level();
+        self.walk_for_statement(init, condition, post, body);
+        self.pop_level();
+    }
+
+    fn visit_foreach_statement(&mut self, value: &AstNode<Identifier>, key: &Option<AstNode<Identifier>>, container: &AstNode<Expression>, body: &AstNode<Statement>) {
+        self.print("FOR EACH");
+
+        self.push_level();
+        self.walk_foreach_statement(value, key, container, body);
+        self.pop_level();
+    }
+
+    fn visit_switch_statement(&mut self, value: &AstNode<CommaExpression>, cases: &Vec<AstNode<SwitchCase>>, default: &Option<AstNode<Statements>>) {
+        self.print("SWITCH");
+
+        self.push_level();
+        self.walk_switch_statement(value, cases, default);
+        self.pop_level();
+    }
+
+    fn visit_local_declare_statement(&mut self, local_declare: &AstNode<LocalDeclare>) {
+        self.print("LOCAL DECLARE");
+
+        self.push_level();
+        self.walk_local_declare_statement(local_declare);
+        self.pop_level();
+    }
+
+    fn visit_return_statement(&mut self, value: &Option<AstNode<CommaExpression>>) {
+        self.print("RETURN");
+
+        self.push_level();
+        self.walk_return_statement(value);
+        self.pop_level();
+    }
+
+    fn visit_yield_statement(&mut self, value: &Option<AstNode<CommaExpression>>) {
+        self.print("YIELD");
+
+        self.push_level();
+        self.walk_yield_statement(value);
+        self.pop_level();
+    }
+
+    fn visit_enum_statement(&mut self, name: &AstNode<Identifier>, values: &AstNode<EnumValues>) {
+        self.print("ENUM");
+
+        self.push_level();
+        self.walk_enum_statement(name, values);
+        self.pop_level();
+    }
+
+    fn visit_trycatch_statement(&mut self, try_body: &AstNode<Statement>, exception_name: &AstNode<Identifier>, catch_body: &AstNode<Statement>) {
+        self.print("TRY CATCH");
+
+        self.push_level();
+        self.walk_trycatch_statement(try_body, exception_name, catch_body);
+        self.pop_level();
+    }
+
+    fn visit_throw_statement(&mut self, exception: &AstNode<CommaExpression>) {
+        self.print("THROW");
+
+        self.push_level();
+        self.walk_throw_statement(exception);
+        self.pop_level();
+    }
+
+    fn visit_func_params(&mut self, params: &AstNode<FunctionParams>) {
         self.print(&params.range.to_string());
         self.print("FUNC PARAMS");
 
         self.push_level();
-        for param in params.value.params {
-            self.visit_func_param(param);
-        }
+        self.walk_func_params(params);
         self.pop_level();
     }
 
-    fn visit_func_param(&mut self, param: AstNode<FunctionParam>) {
+    fn visit_func_param(&mut self, param: &AstNode<FunctionParam>) {
         self.print(&param.range.to_string());
         self.print("FUNC PARAM");
         
-        self.push_level();
         match *param.value {
-            FunctionParam::Normal(identifier) => {
+            FunctionParam::Normal(_) => {
                 self.print("NORMAL");
-
-                self.push_level();
-                self.visit_identifier(identifier);
-                self.pop_level();
             },
-            FunctionParam::Default(identifier, default_val) => {
+            FunctionParam::Default(_, _) => {
                 self.print("DEFAULT");
-                
-                self.push_level();
-                self.visit_identifier(identifier);
-                self.visit_expression(default_val);
-                self.pop_level();
             },
             FunctionParam::VarParams => {
                 self.print("VARARGS");
             },
         }
+
+        self.push_level();
+        self.walk_func_param(param);
         self.pop_level();
     }
 
-    fn visit_local_declare(&mut self, local_declare: AstNode<LocalDeclare>) {
+    fn visit_local_declare(&mut self, local_declare: &AstNode<LocalDeclare>) {
         self.print(&local_declare.range.to_string());
         match *local_declare.value {
-            LocalDeclare::Function(identifier, bind_env, params, body) => {
+            LocalDeclare::Function(_, _, _, _) => {
                 self.print("FUNCTION");
-
-                self.push_level();
-                self.visit_identifier(identifier);
-                if let Some(bind_env) = bind_env {
-                    self.visit_expression(bind_env);
-                }
-                self.visit_func_params(params);
-                self.visit_statement(body);
-                self.pop_level();
             }
-            LocalDeclare::Assign(assign_exprs) => {
+            LocalDeclare::Assign(_) => {
                 self.print("ASSIGN");
-
-                self.push_level();
-                for assign_expr in assign_exprs {
-                    self.visit_assign_expr(assign_expr);
-                }
-                self.pop_level();
             }
         }
+
+        self.push_level();
+        self.walk_local_declare(local_declare);
+        self.pop_level();
     }
 
-    fn visit_assign_expr(&mut self, assign_expr: AstNode<AssignExpression>) {
+    fn visit_assign_expr(&mut self, assign_expr: &AstNode<AssignExpression>) {
         self.print(&assign_expr.range.to_string());
         self.print("ASSIGN EXPRESSION");
 
         self.push_level();
-        self.visit_identifier(assign_expr.value.identifier);
-        if let Some(expression) = assign_expr.value.value {
-            self.visit_expression(expression);
-        }
+        self.walk_assign_expr(assign_expr);
         self.pop_level();
     }
 
-    fn visit_for_init(&mut self, for_init: AstNode<ForInit>) {
+    fn visit_for_init(&mut self, for_init: &AstNode<ForInit>) {
         self.print(&for_init.range.to_string());
         self.print("FOR INIT");
 
-        self.push_level();
         match *for_init.value {
-            ForInit::LocalDeclare(local_declare) => {
+            ForInit::LocalDeclare(_) => {
                 self.print("LOCAL DECLARE");
-
-                self.visit_local_declare(local_declare);
             }
-            ForInit::CommaExpression(comma_expr) => {
+            ForInit::CommaExpression(_) => {
                 self.print("COMMA EXPRESSION");
-
-                self.visit_comma_expr(comma_expr);
             }
         }
+
+        self.push_level();
+        self.walk_for_init(for_init);
         self.pop_level();
     }
 
-    fn visit_unary_op(&mut self, unary_op: AstNode<UnaryOp>) {
+    fn visit_unary_op(&mut self, unary_op: &AstNode<UnaryOp>) {
         self.print(&unary_op.range.to_string());
         self.print("UNARY OP");
 
         self.push_level();
-        self.visit_prefixed_exp(unary_op.value.expression);
+        self.walk_unary_op(unary_op);
         self.pop_level();
     }
 
-    fn visit_logical_or_exp(&mut self, logical_or: AstNode<LogicalOrExpression>) {
+    fn visit_logical_or_exp(&mut self, logical_or: &AstNode<LogicalOrExpression>) {
         if logical_or.value.right.is_empty() {
-            self.visit_logical_and_exp(logical_or.value.left);
+            self.walk_logical_or_exp(logical_or);
         } else {
             self.print(&logical_or.range.to_string());
             self.print("LOGICAL OR");
 
             self.push_level();
-            self.visit_logical_and_exp(logical_or.value.left);
-            for expression in logical_or.value.right {
-                self.visit_logical_or_exp(expression);
-            }
+            self.walk_logical_or_exp(logical_or);
             self.pop_level();
         }
     }
 
-    fn visit_logical_and_exp(&mut self, logical_and: AstNode<LogicalAndExpression>) {
+    fn visit_logical_and_exp(&mut self, logical_and: &AstNode<LogicalAndExpression>) {
         if logical_and.value.right.is_empty() {
-            self.visit_bitwise_or_exp(logical_and.value.left);
+            self.walk_logical_and_exp(logical_and);
         } else {
             self.print(&logical_and.range.to_string());
             self.print("LOGICAL AND");
 
             self.push_level();
-            self.visit_bitwise_or_exp(logical_and.value.left);
-            for expression in logical_and.value.right {
-                self.visit_logical_and_exp(expression);
-            }
+            self.walk_logical_and_exp(logical_and);
             self.pop_level();
         }
     }
 
-    fn visit_bitwise_or_exp(&mut self, bitwise_or: AstNode<BitwiseOrExpression>) {
+    fn visit_bitwise_or_exp(&mut self, bitwise_or: &AstNode<BitwiseOrExpression>) {
         if bitwise_or.value.right.is_empty() {
-            self.visit_bitwise_xor_exp(bitwise_or.value.left);
+            self.walk_bitwise_or_exp(bitwise_or);
         } else {
             self.print(&bitwise_or.range.to_string());
             self.print("BITWISE OR");
 
             self.push_level();
-            self.visit_bitwise_xor_exp(bitwise_or.value.left);
-            for expression in bitwise_or.value.right {
-                self.visit_bitwise_xor_exp(expression);
-            }
+            self.walk_bitwise_or_exp(bitwise_or);
             self.pop_level();
         }
     }
 
-    fn visit_bitwise_xor_exp(&mut self, bitwise_xor: AstNode<BitwiseXorExpression>) {
+    fn visit_bitwise_xor_exp(&mut self, bitwise_xor: &AstNode<BitwiseXorExpression>) {
         if bitwise_xor.value.right.is_empty() {
-            self.visit_bitwise_and_exp(bitwise_xor.value.left);
+            self.walk_bitwise_xor_exp(bitwise_xor);
         } else {
             self.print(&bitwise_xor.range.to_string());
             self.print("BITWISE XOR");
 
             self.push_level();
-            self.visit_bitwise_and_exp(bitwise_xor.value.left);
-            for expression in bitwise_xor.value.right {
-                self.visit_bitwise_and_exp(expression);
-            }
+            self.walk_bitwise_xor_exp(bitwise_xor);
             self.pop_level();
         }
     }
 
-    fn visit_bitwise_and_exp(&mut self, bitwise_and: AstNode<BitwiseAndExpression>) {
+    fn visit_bitwise_and_exp(&mut self, bitwise_and: &AstNode<BitwiseAndExpression>) {
         if bitwise_and.value.right.is_empty() {
-            self.visit_equal_exp(bitwise_and.value.left);
+            self.walk_bitwise_and_exp(bitwise_and);
         } else {
             self.print(&bitwise_and.range.to_string());
             self.print("BITWISE AND");
 
             self.push_level();
-            self.visit_equal_exp(bitwise_and.value.left);
-            for expression in bitwise_and.value.right {
-                self.visit_equal_exp(expression);
-            }
+            self.walk_bitwise_and_exp(bitwise_and);
             self.pop_level();
         }
     }
 
-    fn visit_equal_exp(&mut self, equal: AstNode<EqualExpression>) {
+    fn visit_equal_exp(&mut self, equal: &AstNode<EqualExpression>) {
         if equal.value.slices.is_empty() {
-            self.visit_compare_exp(equal.value.left);
+            self.walk_equal_exp(equal);
         } else {
             self.print(&equal.range.to_string());
             self.print("EQUAL");
 
             self.push_level();
-            self.visit_compare_exp(equal.value.left);
-            for slice in equal.value.slices {
-                self.visit_compare_exp(slice.value.right);
-            }
+            self.walk_equal_exp(equal);
             self.pop_level();
         }
     }
 
-    fn visit_compare_exp(&mut self, compare: AstNode<CompareExpression>) {
+    fn visit_compare_exp(&mut self, compare: &AstNode<CompareExpression>) {
         if compare.value.slices.is_empty() {
-            self.visit_shift_exp(compare.value.left);
+            self.walk_compare_exp(compare);
         } else {
             self.print(&compare.range.to_string());
             self.print("COMPARE");
 
             self.push_level();
-            self.visit_shift_exp(compare.value.left);
-            for slice in compare.value.slices {
-                self.visit_shift_exp(slice.value.right);
-            }
+            self.walk_compare_exp(compare);
             self.pop_level();
         }
     }
 
-    fn visit_shift_exp(&mut self, shift: AstNode<ShiftExpression>) {
+    fn visit_shift_exp(&mut self, shift: &AstNode<ShiftExpression>) {
         if shift.value.slices.is_empty() {
-            self.visit_plus_exp(shift.value.left);
+            self.walk_shift_exp(shift);
         } else {
             self.print(&shift.range.to_string());
             self.print("SHIFT");
 
             self.push_level();
-            self.visit_plus_exp(shift.value.left);
-            for slice in shift.value.slices {
-                self.visit_plus_exp(slice.value.right);
-            }
+            self.walk_shift_exp(shift);
             self.pop_level();
         }
     }
 
-    fn visit_plus_exp(&mut self, plus: AstNode<PlusExpression>) {
+    fn visit_plus_exp(&mut self, plus: &AstNode<PlusExpression>) {
         if plus.value.slices.is_empty() {
-            self.visit_multiply_exp(plus.value.left);
+            self.walk_plus_exp(plus);
         } else {
             self.print(&plus.range.to_string());
             self.print("PLUS");
 
             self.push_level();
-            self.visit_multiply_exp(plus.value.left);
-            for slice in plus.value.slices {
-                self.visit_multiply_exp(slice.value.right);
-            }
+            self.walk_plus_exp(plus);
             self.pop_level();
         }
     }
 
-    fn visit_multiply_exp(&mut self, multiply: AstNode<MultiplyExpression>) {
+    fn visit_multiply_exp(&mut self, multiply: &AstNode<MultiplyExpression>) {
         if multiply.value.slices.is_empty() {
-            self.visit_prefixed_exp(multiply.value.left);
+            self.walk_multiply_exp(multiply);
         } else {
             self.print(&multiply.range.to_string());
             self.print("MULTIPLY");
 
             self.push_level();
-            self.visit_prefixed_exp(multiply.value.left);
-            for slice in multiply.value.slices {
-                self.visit_prefixed_exp(slice.value.right);
-            }
+            self.walk_multiply_exp(multiply);
             self.pop_level();
         }
     }
 
-    fn visit_prefixed_exp(&mut self, prefixed: AstNode<PrefixedExpression>) {
+    fn visit_prefixed_exp(&mut self, prefixed: &AstNode<PrefixedExpression>) {
         if prefixed.value.expr_types.is_empty() {
-            self.visit_factor(prefixed.value.factor);
+            self.walk_prefixed_exp(prefixed);
         } else {
             self.print(&prefixed.range.to_string());
             self.print("PREFIXED");
 
             self.push_level();
-            self.visit_factor(prefixed.value.factor);
-            self.pop_level();
-            for expr_type in prefixed.value.expr_types {
-                self.push_level();
-                match *expr_type.value {
-                    PrefixedExpressionType::DotAccess(identifier) => {
+            for expr_type in &prefixed.value.expr_types {
+                match expr_type.value.as_ref() {
+                    PrefixedExpressionType::DotAccess(_) => {
                         self.print("DOT ACCESS");
-
-                        self.push_level();
-                        self.visit_identifier(identifier);
-                        self.pop_level();
                     },
-                    PrefixedExpressionType::ArrayStyleAccess(expression) => {
+                    PrefixedExpressionType::ArrayStyleAccess(_) => {
                         self.print("ARRAY ACCESS");
-
-                        self.push_level();
-                        self.visit_expression(expression);
-                        self.pop_level();
                     },
                     PrefixedExpressionType::PostIncrement => {
                         self.print("POST INCREMENT");
@@ -542,191 +442,100 @@ impl SimpleVisitorMut for PrettyPrinter {
                     PrefixedExpressionType::PostDecrement => {
                         self.print("POST DECREMENT");
                     },
-                    PrefixedExpressionType::FunctionCall(args) => {
+                    PrefixedExpressionType::FunctionCall(_) => {
                         self.print("FUNCTION CALL");
-
-                        self.push_level();
-                        for expression in args.value.args {
-                            self.visit_expression(expression);
-                        }
-                        self.pop_level();
-
-                        // TODO: post call init
                     },
                 }
-                self.pop_level();
             }
+            self.pop_level();
+
+            self.push_level();
+            self.walk_prefixed_exp(prefixed);
+            self.pop_level();
         }
     }
 
-    fn visit_table(&mut self, table: AstNode<Table>) {
+    fn visit_table(&mut self, table: &AstNode<Table>) {
         self.print(&table.range.to_string());
-        for entry in table.value.entries {
+        for entry in &table.value.entries {
             self.visit_table_entry(entry);
         }
     }
 
-    fn visit_table_entry(&mut self, entry: AstNode<TableEntry>) {
+    fn visit_table_entry(&mut self, entry: &AstNode<TableEntry>) {
         self.print(&entry.range.to_string());
         self.print("TABLE ENTRY");
 
         self.push_level();
         match *entry.value {
-            TableEntry::Function(name, params, body) => {
+            TableEntry::Function(_, _, _) => {
                 self.print("FUNCTION");
-                
-                self.push_level();
-                self.visit_identifier(name);
-                self.visit_func_params(params);
-                self.visit_statement(body);
-                self.pop_level();
             },
-            TableEntry::Constructor(params, body) => {
+            TableEntry::Constructor(_, _) => {
                 self.print("CONSTRUCTOR");
-
-                self.push_level();
-                self.visit_func_params(params);
-                self.visit_statement(body);
-                self.pop_level();
             },
-            TableEntry::DynamicAssign(key, value) => {
+            TableEntry::DynamicAssign(_, _) => {
                 self.print("DYNAMIC ASSIGN");
-
-                self.push_level();
-                self.visit_comma_expr(key);
-                self.visit_expression(value);
-                self.pop_level();
             },
-            TableEntry::JsonStyle(_key, value) => {
+            TableEntry::JsonStyle(_, _) => {
                 self.print("JSON STYLE");
-
-                self.push_level();
-                self.visit_expression(value);
-                self.pop_level();
             },
-            TableEntry::Simple(key, value) => {
+            TableEntry::Simple(_, _) => {
                 self.print("SIMPLE");
-
-                self.push_level();
-                self.visit_identifier(key);
-                self.visit_expression(value);
-                self.pop_level();
             },
-            TableEntry::Attributes(table) => {
+            TableEntry::Attributes(_) => {
                 self.print("ATTRIBUTES");
-
-                self.push_level();
-                self.visit_table(table);
-                self.pop_level();
             },
         }
         self.pop_level();
+
+        self.push_level();
+        self.walk_table_entry(entry);
+        self.pop_level();
     }
 
-    fn visit_factor(&mut self, factor: AstNode<Factor>) {
+    fn visit_factor(&mut self, factor: &AstNode<Factor>) {
         self.print(&factor.range.to_string());
         self.print("FACTOR");
 
         self.push_level();
-        match *factor.value {
-            Factor::Scalar(scalar) => {
+        match factor.value.as_ref() {
+            Factor::Scalar(_) => {
                 self.print("SCALAR");
-
-                self.push_level();
-                self.visit_scalar(scalar);
-                self.pop_level();
             },
             Factor::Base => self.print("BASE"),
-            Factor::Identifier(identifier) => {
-                self.visit_identifier(identifier);
-            },
             Factor::Constructor => self.print("CONSTRUCTOR"),
             Factor::This => self.print("THIS"),
-            Factor::DoubleColon(prefixed_expression) => {
+            Factor::DoubleColon(_) => {
                 self.print("DOUBLE_COLON");
-
-                self.push_level();
-                self.visit_prefixed_exp(prefixed_expression);
-                self.pop_level();
             },
             Factor::Null => self.print("NULL"),
-            Factor::ArrayInit(entries) => {
+            Factor::ArrayInit(_) => {
                 self.print("ARRAY");
-
-                self.push_level();
-                for entry in entries {
-                    self.visit_expression(entry);
-                }
-                self.pop_level();
             },
-            Factor::TableInit(table) => {
+            Factor::TableInit(_) => {
                 self.print("TABLE");
-
-                self.push_level();
-                self.visit_table(table);
-                self.pop_level();
             },
-            Factor::FunctionExpression(bind_env, params, body) => {
+            Factor::FunctionExpression(_, _, _) => {
                 self.print("FUNCTION");
-
-                self.push_level();
-                if let Some(bind_env) = bind_env {
-                    self.visit_expression(bind_env);
-                }
-
-                self.visit_func_params(params);
-                self.visit_statement(body);
-                self.pop_level();
             },
-            Factor::LambdaExpression(bind_env, params, body) => {
+            Factor::LambdaExpression(_, _, _) => {
                 self.print("LAMBDA EXPRESSION");
-
-                self.push_level();
-                if let Some(bind_env) = bind_env {
-                    self.visit_expression(bind_env);
-                }
-                self.visit_func_params(params);
-                self.visit_expression(body);
-                self.pop_level();
             },
-            Factor::ClassExpression(class_expression) => {
+            Factor::ClassExpression(_) => {
                 self.print("CLASS EXPRESSION");
-
-                self.push_level();
-                self.visit_class_expr(class_expression);
-                self.pop_level();
             },
-            Factor::UnaryOp(unary_op) => {
+            Factor::UnaryOp(_) => {
                 self.print("UNARY OP");
-
-                self.push_level();
-                self.visit_unary_op(unary_op);
-                self.pop_level();
             },
-            Factor::RawCall(args) => {
+            Factor::RawCall(_) => {
                 self.print("RAWCALL");
-
-                self.push_level();
-                for expression in args.value.args {
-                    self.visit_expression(expression);
-                }
-
-                // TODO: post call init
-                self.pop_level();
             },
-            Factor::Delete(expression) => {
+            Factor::Delete(_) => {
                 self.print("DELETE");
-
-                self.push_level();
-                self.visit_prefixed_exp(expression);
-                self.pop_level();
             },
-            Factor::ParenExpression(expression) => {
+            Factor::ParenExpression(_) => {
                 self.print("PAREN EXPRESSION");
-
-                self.push_level();
-                self.visit_comma_expr(expression);
-                self.pop_level();
             },
             Factor::LineInfo => {
                 self.print("LINE INFO");
@@ -734,77 +543,53 @@ impl SimpleVisitorMut for PrettyPrinter {
             Factor::FileInfo => {
                 self.print("FILE INFO");
             },
+            _ => {}
         }
+        self.pop_level();
+
+        self.push_level();
+        self.walk_factor(factor);
         self.pop_level();
     }
 
-    fn visit_expression(&mut self, expression: AstNode<Expression>) {
+    fn visit_expression(&mut self, expression: &AstNode<Expression>) {
         self.print(&expression.range.to_string());
         self.print("EXPRESSION");
 
-        self.push_level();
-        self.visit_logical_or_exp(expression.value.logical_or);
-        self.pop_level();
-
-        if let Some(expr_type) = expression.value.expr_type {
+        if let Some(expr_type) = &expression.value.expr_type {
             match *expr_type.value {
-                ExpressionType::Newslot(expression) => {
+                ExpressionType::Newslot(_) => {
                     self.print("NEWSLOT");
-
-                    self.push_level();
-                    self.visit_expression(expression);
-                    self.pop_level();
                 },
-                ExpressionType::Assign(expression) => {
+                ExpressionType::Assign(_) => {
                     self.print("ASSIGN");
-
-                    self.push_level();
-                    self.visit_expression(expression);
-                    self.pop_level();
                 },
-                ExpressionType::MinusEqual(expression) => {
+                ExpressionType::MinusEqual(_) => {
                     self.print("MINUS EQUAL");
-
-                    self.push_level();
-                    self.visit_expression(expression);
-                    self.pop_level();
                 },
-                ExpressionType::PlusEqual(expression) => {
+                ExpressionType::PlusEqual(_) => {
                     self.print("PLUS EQUAL");
-
-                    self.push_level();
-                    self.visit_expression(expression);
-                    self.pop_level();
                 },
-                ExpressionType::MultiplyEqual(expression) => {
+                ExpressionType::MultiplyEqual(_) => {
                     self.print("MULTIPLY EQUAL");
-
-                    self.push_level();
-                    self.visit_expression(expression);
-                    self.pop_level();
                 },
-                ExpressionType::DivideEqual(expression) => {
+                ExpressionType::DivideEqual(_) => {
                     self.print("DIVIDE EQUAL");
-
-                    self.push_level();
-                    self.visit_expression(expression);
-                    self.pop_level();
                 },
-                ExpressionType::Ternary(true_case, false_case) => {
+                ExpressionType::Ternary(_, _) => {
                     self.print("TERNARY");
-
-                    self.push_level();
-                    self.visit_expression(true_case);
-                    self.visit_expression(false_case);
-                    self.pop_level();
                 },
             }
         }
+
+        self.push_level();
+        self.walk_expression(expression);
+        self.pop_level();
     }
 
-    fn visit_scalar(&mut self, scalar: AstNode<Scalar>) {
+    fn visit_scalar(&mut self, scalar: &AstNode<Scalar>) {
         self.print(&scalar.range.to_string());
-        match *scalar.value {
+        match scalar.value.as_ref() {
             Scalar::Integer(value) => self.print(&format!("INTEGER: {}", value)),
             Scalar::Float(value) => self.print(&format!("FLOAT: {}", value)),
             Scalar::StringLiteral(value) => self.print(&format!("STRING: {}", value)),
@@ -813,7 +598,7 @@ impl SimpleVisitorMut for PrettyPrinter {
         }
     }
 
-    fn visit_identifier(&mut self, identifier: AstNode<Identifier>) {
+    fn visit_identifier(&mut self, identifier: &AstNode<Identifier>) {
         self.print(&identifier.range.to_string());
         self.print(&format!("IDENTIFIER: {}", identifier.value.value));
     }
