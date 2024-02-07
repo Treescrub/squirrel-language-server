@@ -7,6 +7,8 @@ mod ast;
 mod visitors;
 mod source_info;
 
+use std::fmt::Display;
+
 use ast::AstNode;
 use document_manager::DocumentManager;
 use parser::ParseError;
@@ -36,8 +38,8 @@ impl Backend {
                 let mut pretty_printer = PrettyPrinter::new();
 
                 pretty_printer.visit_script(&script);
-                self.client.log_message(MessageType::INFO, "Pretty printer:").await;
-                self.client.log_message(MessageType::LOG, pretty_printer.text).await;
+                self.print_verbose(MessageType::INFO, "Pretty printer:").await;
+                self.print_verbose(MessageType::LOG, pretty_printer.text).await;
             }
             Err(error) => {
                 self.client.log_message(MessageType::ERROR, format!("Failed to parse: {}", error)).await;
@@ -47,6 +49,14 @@ impl Backend {
                 diagnostics.push(Diagnostic::new_simple(Range { start: error.range.start.to_position(), end: error.range.end.to_position() }, error.message));
                 self.client.publish_diagnostics(uri, diagnostics, Some(version)).await;
             }
+        }
+    }
+
+    async fn print_verbose<M: Display>(&self, typ: MessageType, message: M) {
+        let config = self.client.configuration(vec![ConfigurationItem { scope_uri: None, section: Some(String::from("squirrel.debug.debugMessages"))}]).await;
+        
+        if config.is_err() || config.unwrap()[0].as_bool().unwrap() {
+            self.client.log_message(typ, message).await;
         }
     }
 
@@ -167,9 +177,7 @@ impl LanguageServer for Backend {
         let mut state = self.state.lock().await;
         state.doc_manager.open_file(&params.text_document.text, &params.text_document.uri);
 
-        self.client
-            .log_message(MessageType::INFO, format!("open files: {}", state.doc_manager.total_open_files()))
-            .await;
+        self.print_verbose(MessageType::INFO, format!("open files: {}", state.doc_manager.total_open_files())).await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -203,9 +211,7 @@ impl LanguageServer for Backend {
 
         let mut state = self.state.lock().await;
         state.doc_manager.close_file(&params.text_document.uri);
-        self.client
-            .log_message(MessageType::INFO, format!("open files: {}", state.doc_manager.total_open_files()))
-            .await;
+        self.print_verbose(MessageType::INFO, format!("open files: {}", state.doc_manager.total_open_files())).await;
     }
 
     async fn completion(&self, _: CompletionParams) -> Result<Option<CompletionResponse>> {
