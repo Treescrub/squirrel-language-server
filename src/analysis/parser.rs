@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
-use crate::ast::*;
-use crate::lexer::*;
-use crate::source_info::SourceRange;
+use super::ast::*;
+use super::lexer::*;
+use super::source_info::SourceRange;
 
 #[derive(Debug)]
 pub struct ParseError {

@@ -1,4 +1,4 @@
-use crate::lexer::{Lexer, TokenType};
+use crate::analysis::lexer::{Lexer, TokenType};
 
 #[test]
 fn hex_literal() {

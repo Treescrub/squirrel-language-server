@@ -1,4 +1,4 @@
-use crate::{lexer::{TokenType, Token}, source_info::SourceRange};
+use super::{lexer::{TokenType, Token}, source_info::SourceRange};
 
 pub struct AstNode<T> {
     pub range: SourceRange,

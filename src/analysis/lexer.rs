@@ -1,7 +1,7 @@
 use core::fmt;
 use std::{str::Chars, collections::HashMap, fmt::Display};
 
-use crate::source_info::{SourceLocation, SourceRange};
+use super::source_info::{SourceLocation, SourceRange};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum TokenType {

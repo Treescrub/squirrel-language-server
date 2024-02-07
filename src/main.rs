@@ -1,17 +1,17 @@
-mod lexer;
 #[cfg(test)]
 mod tests;
 mod document_manager;
-mod parser;
-mod ast;
+mod analysis;
 mod visitors;
-mod source_info;
 
 use std::fmt::Display;
 
-use ast::AstNode;
+use analysis::ast::AstNode;
+use analysis::ast::Script;
+use analysis::parser::ParseError;
+use crate::analysis::lexer::Lexer;
+use crate::analysis::parser::Parser;
 use document_manager::DocumentManager;
-use parser::ParseError;
 use serde_json::Value;
 use tokio::sync::Mutex;
 use tower_lsp::jsonrpc::Result;
@@ -19,8 +19,6 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 use visitors::SimpleVisitorMut;
 use visitors::pretty_printer::PrettyPrinter;
-use crate::lexer::Lexer;
-use crate::parser::Parser;
 
 #[derive(Debug)]
 struct Backend {
@@ -29,7 +27,7 @@ struct Backend {
 }
 
 impl Backend {
-    async fn handle_parse_result(&self, result: std::result::Result<AstNode<ast::Script>, ParseError>, uri: Url, version: i32) {
+    async fn handle_parse_result(&self, result: std::result::Result<AstNode<Script>, ParseError>, uri: Url, version: i32) {
         match result {
             Ok(script) => {
                 self.client.log_message(MessageType::INFO, "Successfully parsed").await;
