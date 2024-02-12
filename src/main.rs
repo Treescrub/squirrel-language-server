@@ -3,12 +3,14 @@ mod tests;
 mod document_manager;
 mod analysis;
 mod visitors;
+mod settings;
 
 use std::fmt::Display;
 
 use analysis::ast::AstNode;
 use analysis::ast::Script;
 use analysis::parser::ParseError;
+use settings::DebugSettings;
 use crate::analysis::lexer::Lexer;
 use crate::analysis::parser::Parser;
 use document_manager::DocumentManager;
@@ -51,7 +53,7 @@ impl Backend {
     }
 
     async fn print_verbose<M: Display>(&self, typ: MessageType, message: M) {
-        let config = self.client.configuration(vec![ConfigurationItem { scope_uri: None, section: Some(String::from("squirrel.debug.debugMessages"))}]).await;
+        let config = self.client.configuration(vec![DebugSettings::VerbosePrint.into()]).await;
         
         if config.is_err() || config.unwrap()[0].as_bool().unwrap() {
             self.client.log_message(typ, message).await;
