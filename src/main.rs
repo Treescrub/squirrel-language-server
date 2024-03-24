@@ -29,6 +29,13 @@ struct Backend {
 }
 
 impl Backend {
+    fn new(client: Client) -> Self {
+        Self {
+            client,
+            state: Mutex::new(State::new()),
+        }
+    }
+
     async fn handle_parse_result(&self, result: std::result::Result<AstNode<Script>, ParseError>, uri: Url, version: i32) {
         match result {
             Ok(script) => {
@@ -81,6 +88,14 @@ impl Backend {
 #[derive(Debug)]
 struct State {
     doc_manager: DocumentManager,
+}
+
+impl State {
+    fn new() -> Self {
+        Self {
+            doc_manager: DocumentManager::new(),
+        }
+    }
 }
 
 #[tower_lsp::async_trait]
@@ -230,6 +245,7 @@ async fn main() {
     #[cfg(feature = "runtime-agnostic")]
     let (stdin, stdout) = (stdin.compat(), stdout.compat_write());
 
-    let (service, socket) = LspService::new(|client| Backend { client, state: Mutex::new(State { doc_manager: DocumentManager::new() }) });
+    let (service, socket) = LspService::new(|client| Backend::new(client));
+
     Server::new(stdin, stdout, socket).serve(service).await;
 }
