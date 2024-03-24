@@ -729,6 +729,7 @@ impl<'a,'b> Lexer<'b> {
                     match self.next() {
                         '=' => {
                             if self.next() == '>' {
+                                self.next();
                                 self.end_token(TokenType::ThreeWayCompare);
                             } else {
                                 self.end_token(TokenType::LessOrEqual);
