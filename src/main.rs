@@ -36,6 +36,16 @@ impl Backend {
         }
     }
 
+    async fn parse_file(&self, uri: &Url, version: i32) {
+        let state = self.state.lock().await;
+        let mut lexer: Lexer = Lexer::new(state.doc_manager.get(uri).unwrap());
+        lexer.lex();
+        
+        let mut parser: Parser = Parser::new(&lexer.tokens);
+        let parse_result = parser.parse();
+        self.handle_parse_result(parse_result, uri.clone(), version).await;
+    }
+
     async fn handle_parse_result(&self, result: std::result::Result<AstNode<Script>, ParseError>, uri: Url, version: i32) {
         match result {
             Ok(script) => {
@@ -174,43 +184,30 @@ impl LanguageServer for Backend {
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        let mut lexer: Lexer = Lexer::new(&params.text_document.text);
-        lexer.lex();
-        let mut tokens: String = String::from("");
-        for token in &lexer.tokens {
-            tokens.push_str(&token.to_string());
-            tokens.push('\n');
-        }
         self.client
             .log_message(MessageType::INFO, "file opened!")
             .await;
-        
-        let mut parser: Parser = Parser::new(&lexer.tokens);
-        let parse_result = parser.parse();
-        self.handle_parse_result(parse_result, params.text_document.uri.clone(), params.text_document.version).await;
-        
+ 
         let mut state = self.state.lock().await;
         state.doc_manager.open_file(&params.text_document.text, &params.text_document.uri);
-
         self.print_verbose(MessageType::INFO, format!("open files: {}", state.doc_manager.total_open_files())).await;
+        drop(state);
+
+        self.parse_file(&params.text_document.uri, params.text_document.version).await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         self.client
-        .log_message(MessageType::INFO, "file changed!")
-        .await;
+            .log_message(MessageType::INFO, "file changed!")
+            .await;
 
         let mut state = self.state.lock().await;
         for content_change in &params.content_changes {
             state.doc_manager.edit_file(&content_change.text, &params.text_document.uri, content_change.range);
         }
+        drop(state);
 
-        let mut lexer: Lexer = Lexer::new(state.doc_manager.get(&params.text_document.uri).unwrap());
-        lexer.lex();
-
-        let mut parser: Parser = Parser::new(&lexer.tokens);
-        let parse_result = parser.parse();
-        self.handle_parse_result(parse_result, params.text_document.uri.clone(), params.text_document.version).await;
+        self.parse_file(&params.text_document.uri, params.text_document.version).await;
     }
 
     async fn did_save(&self, _params: DidSaveTextDocumentParams) {
