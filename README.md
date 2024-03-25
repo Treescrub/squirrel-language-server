@@ -11,3 +11,4 @@ Build using cargo: `cargo build`
 * [Squirrel Documentation](http://www.squirrel-lang.org/squirreldoc/reference/introduction.html)
 * [Squirrel Repo](https://github.com/albertodemichelis/squirrel)
 * [LSP Spec](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/)
+* [Recommended Feature List](https://code.visualstudio.com/api/language-extensions/programmatic-language-features)
