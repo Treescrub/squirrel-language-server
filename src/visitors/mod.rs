@@ -89,6 +89,9 @@ pub trait SimpleVisitorMut {
     fn visit_func_param(&mut self, param: &AstNode<FunctionParam>) {
         self.walk_func_param(param);
     }
+    fn visit_func_call_args(&mut self, args: &AstNode<FunctionCallArgs>) {
+        self.walk_func_call_args(args);
+    }
     fn visit_post_call_init(&mut self, post_call_init: &AstNode<PostCallInitialize>) {
         self.walk_post_call_init(post_call_init);
     }
@@ -140,9 +143,15 @@ pub trait SimpleVisitorMut {
     fn visit_prefixed_exp(&mut self, prefixed: &AstNode<PrefixedExpression>) {
         self.walk_prefixed_exp(prefixed);
     }
-    fn visit_scalar(&mut self, _scalar: &AstNode<Scalar>) {}
-    fn visit_factor(&mut self, _factor: &AstNode<Factor>) {}
-    fn visit_identifier(&mut self, _identifier: &AstNode<Identifier>) {}
+    fn visit_scalar(&mut self, scalar: &AstNode<Scalar>) {
+        self.walk_scalar(scalar);
+    }
+    fn visit_factor(&mut self, factor: &AstNode<Factor>) {
+        self.walk_factor(factor);
+    }
+    fn visit_identifier(&mut self, identifier: &AstNode<Identifier>) {
+        self.walk_identifier(identifier);
+    }
 
 
     // walk methods for default visiting behavior
@@ -383,6 +392,15 @@ pub trait SimpleVisitorMut {
             FunctionParam::VarParams => {},
         }
     }
+    fn walk_func_call_args(&mut self, args: &AstNode<FunctionCallArgs>) {
+        for arg in &args.value.args {
+            self.visit_expression(arg);
+        }
+
+        if let Some(post_call_init) = &args.value.post_call_init {
+            self.visit_post_call_init(post_call_init);
+        }
+    }
     fn walk_post_call_init(&mut self, post_call_init: &AstNode<PostCallInitialize>) {
         for entry in &post_call_init.value.entries {
             match entry.value.as_ref() {
@@ -544,19 +562,47 @@ pub trait SimpleVisitorMut {
                 PrefixedExpressionType::ArrayStyleAccess(expression) => self.visit_expression(expression),
                 PrefixedExpressionType::PostIncrement => {},
                 PrefixedExpressionType::PostDecrement => {},
-                PrefixedExpressionType::FunctionCall(call_args) => {
-                    for arg in &call_args.value.args {
-                        self.visit_expression(arg);
-                    }
-
-                    if let Some(post_call_init) = &call_args.value.post_call_init {
-                        self.visit_post_call_init(post_call_init);
-                    }
+                PrefixedExpressionType::FunctionCall(args) => {
+                    self.visit_func_call_args(args);
                 },
             }
         }
     }
     fn walk_scalar(&mut self, _scalar: &AstNode<Scalar>) {}
-    fn walk_factor(&mut self, _factor: &AstNode<Factor>) {}
+    fn walk_factor(&mut self, factor: &AstNode<Factor>) {
+        match factor.value.as_ref() {
+            Factor::Scalar(scalar) => self.visit_scalar(scalar),
+            Factor::Identifier(identifier) => self.visit_identifier(identifier),
+            Factor::DoubleColon(prefixed_expr) => self.visit_prefixed_exp(prefixed_expr),
+            Factor::ArrayInit(elements) => {
+                for element in elements {
+                    self.visit_expression(element);
+                }
+            },
+            Factor::TableInit(table) => self.visit_table(table),
+            Factor::FunctionExpression(bind_env, params, body) => {
+                if let Some(bind_env) = bind_env {
+                    self.visit_expression(bind_env);
+                }
+
+                self.visit_func_params(params);
+                self.visit_statement(body);
+            },
+            Factor::LambdaExpression(bind_env, params, body) => {
+                if let Some(bind_env) = bind_env {
+                    self.visit_expression(bind_env);
+                }
+
+                self.visit_func_params(params);
+                self.visit_expression(body);
+            },
+            Factor::ClassExpression(class_expr) => self.visit_class_expr(class_expr),
+            Factor::UnaryOp(unary_op) => self.visit_unary_op(unary_op),
+            Factor::RawCall(args) => self.visit_func_call_args(args),
+            Factor::Delete(prefixed_expr) => self.visit_prefixed_exp(prefixed_expr),
+            Factor::ParenExpression(comma_expr) => self.visit_comma_expr(comma_expr),
+            _ => {}
+        }
+    }
     fn walk_identifier(&mut self, _identifier: &AstNode<Identifier>) {}
 }
