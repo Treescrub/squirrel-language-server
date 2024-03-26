@@ -1,5 +1,6 @@
 use crate::analysis::ast::*;
 pub mod pretty_printer;
+pub mod identifier_collector;
 
 pub trait SimpleVisitorMut {
     fn visit_script(&mut self, script: &AstNode<Script>) {

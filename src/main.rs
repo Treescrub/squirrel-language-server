@@ -5,12 +5,14 @@ mod analysis;
 mod visitors;
 mod settings;
 
+use std::collections::HashSet;
 use std::fmt::Display;
 
 use analysis::ast::AstNode;
 use analysis::ast::Script;
 use analysis::parser::ParseError;
 use settings::DebugSettings;
+use visitors::identifier_collector::IdentifierCollector;
 use crate::analysis::lexer::Lexer;
 use crate::analysis::parser::Parser;
 use document_manager::DocumentManager;
@@ -42,6 +44,8 @@ impl Backend {
         lexer.lex();
         
         let mut parser: Parser = Parser::new(&lexer.tokens);
+        drop(state);
+
         let parse_result = parser.parse();
         self.handle_parse_result(parse_result, uri.clone(), version).await;
     }
@@ -52,9 +56,16 @@ impl Backend {
                 self.client.log_message(MessageType::INFO, "Successfully parsed").await;
                 self.client.publish_diagnostics(uri, Vec::new(), Some(version)).await;
 
-                let mut pretty_printer = PrettyPrinter::new();
+                let mut identifier_collector = IdentifierCollector::new();
+                identifier_collector.visit_script(&script);
 
+                let mut state = self.state.lock().await;
+                state.identifiers = identifier_collector.identifiers;
+                drop(state);
+
+                let mut pretty_printer = PrettyPrinter::new();
                 pretty_printer.visit_script(&script);
+
                 self.print_verbose(MessageType::INFO, "Pretty printer:").await;
                 self.print_verbose(MessageType::LOG, pretty_printer.text).await;
             }
@@ -77,7 +88,7 @@ impl Backend {
         }
     }
 
-    fn build_completion_items() -> Vec<CompletionItem> {
+    fn build_keyword_completions() -> Vec<CompletionItem> {
         let keywords = vec!["while", "do", "if", "else", "break", "continue", "return", "null", "function", "local", "for", "foreach", 
                 "in", "typeof", "base", "delete", "try", "catch", "throw", "clone", "yield", "resume", "switch", "case", "default", "this", "class",
                 "extends", "constructor", "instanceof", "true", "false", "static", "enum", "const", "__LINE__", "__FILE__", "rawcall"];
@@ -98,12 +109,14 @@ impl Backend {
 #[derive(Debug)]
 struct State {
     doc_manager: DocumentManager,
+    identifiers: HashSet<String>,
 }
 
 impl State {
     fn new() -> Self {
         Self {
             doc_manager: DocumentManager::new(),
+            identifiers: HashSet::new(),
         }
     }
 }
@@ -227,7 +240,19 @@ impl LanguageServer for Backend {
     }
 
     async fn completion(&self, _: CompletionParams) -> Result<Option<CompletionResponse>> {
-        Ok(Some(CompletionResponse::Array(Self::build_completion_items())))
+        let mut items = Self::build_keyword_completions();
+
+        let state = self.state.lock().await;
+
+        for identifier in &state.identifiers {
+            items.push(CompletionItem {
+                label: String::from(identifier),
+                kind: Some(CompletionItemKind::VARIABLE),
+                ..CompletionItem::default()
+            });
+        }
+
+        Ok(Some(CompletionResponse::Array(items)))
     }
 }
 
