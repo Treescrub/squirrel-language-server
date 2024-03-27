@@ -12,6 +12,8 @@ impl Display for SourceRange {
     }
 }
 
+/// Represents a range in source code.
+/// `start` is inclusive and `end` is exclusive
 impl SourceRange {
     pub fn new(start: SourceLocation, end: SourceLocation) -> Self {
         Self {
@@ -25,6 +27,13 @@ impl SourceRange {
             start: SourceLocation::new(),
             end: SourceLocation::new(),
         }
+    }
+
+    pub fn contains_location(&self, location: &SourceLocation) -> bool {
+        let past_start: bool = (location.line > self.start.line) || (location.line == self.start.line && location.column >= self.start.column);
+        let before_end: bool = (location.line < self.end.line) || (location.line == self.end.line && location.column < self.end.column);
+
+        return past_start && before_end;
     }
 }
 
