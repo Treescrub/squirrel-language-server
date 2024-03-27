@@ -57,7 +57,7 @@ impl SourceLocation {
         }
     }
 
-    pub fn to_position(&self) -> tower_lsp::lsp_types::Position {
+    pub fn to_position(self) -> tower_lsp::lsp_types::Position {
         tower_lsp::lsp_types::Position { line: self.line - 1, character: self.column - 1 }
     }
 }

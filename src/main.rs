@@ -1,3 +1,5 @@
+#![allow(clippy::needless_return)]
+
 #[cfg(test)]
 mod tests;
 mod document_manager;
@@ -267,7 +269,7 @@ async fn main() {
     #[cfg(feature = "runtime-agnostic")]
     let (stdin, stdout) = (stdin.compat(), stdout.compat_write());
 
-    let (service, socket) = LspService::new(|client| Backend::new(client));
+    let (service, socket) = LspService::new(Backend::new);
 
     Server::new(stdin, stdout, socket).serve(service).await;
 }

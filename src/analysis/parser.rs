@@ -69,7 +69,7 @@ impl<'a> Parser<'a> {
 
         // hacky way to prevent stack overflow :/
         return stacker::grow(100 * 1024 * 1024, || {
-            return Ok(self.script()?);
+            return self.script();
         });
     }
 
@@ -784,7 +784,7 @@ impl<'a> Parser<'a> {
             TokenType::LeftSquare => {
                 self.next_token();
 
-                return Ok(self.array_init()?);
+                return self.array_init();
             }
             TokenType::LeftCurly => {
                 self.start_node();
@@ -1257,20 +1257,15 @@ impl<'a> Parser<'a> {
         let left = self.compare_expression()?;
         let mut slices = Vec::new();
 
-        loop {
-            match self.current_token_type() {
-                TokenType::Equal | TokenType::NotEqual | TokenType::ThreeWayCompare => {
-                    self.start_node();
+        while let TokenType::Equal | TokenType::NotEqual | TokenType::ThreeWayCompare = self.current_token_type() {
+            self.start_node();
                     
-                    self.start_node();
-                    let operator = self.new_node(self.current_token_type());
-                    self.next_token();
-                    let right = self.compare_expression()?;
+            self.start_node();
+            let operator = self.new_node(self.current_token_type());
+            self.next_token();
+            let right = self.compare_expression()?;
 
-                    slices.push(self.new_node(BinaryOpSlice::new(operator, right)));
-                }
-                _ => break,
-            }
+            slices.push(self.new_node(BinaryOpSlice::new(operator, right)));
         }
 
         return Ok(self.new_node(EqualExpression::new(left, slices)));
@@ -1282,21 +1277,16 @@ impl<'a> Parser<'a> {
         let left = self.shift_expression()?;
         let mut slices = Vec::new();
 
-        loop {
-            match self.current_token_type() {
-                TokenType::GreaterThan | TokenType::GreaterOrEqual | TokenType::LessThan 
-                    | TokenType::LessOrEqual | TokenType::In | TokenType::Instanceof => {
-                    self.start_node();
+        while let TokenType::GreaterThan | TokenType::GreaterOrEqual | TokenType::LessThan 
+        | TokenType::LessOrEqual | TokenType::In | TokenType::Instanceof = self.current_token_type() {
+            self.start_node();
 
-                    self.start_node();
-                    let operator = self.new_node(self.current_token_type());
-                    self.next_token();
-                    let right = self.shift_expression()?;
-
-                    slices.push(self.new_node(BinaryOpSlice::new(operator, right)));
-                }
-                _ => break,
-            }
+            self.start_node();
+            let operator = self.new_node(self.current_token_type());
+            self.next_token();
+            let right = self.shift_expression()?;
+                    
+            slices.push(self.new_node(BinaryOpSlice::new(operator, right)));
         }
 
         return Ok(self.new_node(CompareExpression::new(left, slices)));
@@ -1308,20 +1298,15 @@ impl<'a> Parser<'a> {
         let left = self.plus_expression()?;
         let mut slices = Vec::new();
 
-        loop {
-            match self.current_token_type() {
-                TokenType::UnsignedShiftRight | TokenType::ShiftLeft | TokenType::ShiftRight => {
-                    self.start_node();
+        while let TokenType::UnsignedShiftRight | TokenType::ShiftLeft | TokenType::ShiftRight = self.current_token_type() {
+            self.start_node();
 
-                    self.start_node();
-                    let operator = self.new_node(self.current_token_type());
-                    self.next_token();
-                    let right = self.plus_expression()?;
+            self.start_node();
+            let operator = self.new_node(self.current_token_type());
+            self.next_token();
+            let right = self.plus_expression()?;
 
-                    slices.push(self.new_node(BinaryOpSlice::new(operator, right)));
-                }
-                _ => break,
-            }
+            slices.push(self.new_node(BinaryOpSlice::new(operator, right)));
         }
 
         return Ok(self.new_node(ShiftExpression::new(left, slices)));
@@ -1333,20 +1318,15 @@ impl<'a> Parser<'a> {
         let left = self.multiply_expression()?;
         let mut slices = Vec::new();
 
-        loop {
-            match self.current_token_type() {
-                TokenType::Plus | TokenType::Minus => {
-                    self.start_node();
+        while let TokenType::Plus | TokenType::Minus = self.current_token_type() {
+            self.start_node();
 
-                    self.start_node();
-                    let operator = self.new_node(self.current_token_type());
-                    self.next_token();
-                    let right = self.multiply_expression()?;
+            self.start_node();
+            let operator = self.new_node(self.current_token_type());
+            self.next_token();
+            let right = self.multiply_expression()?;
 
-                    slices.push(self.new_node(BinaryOpSlice::new(operator, right)));
-                }
-                _ => break,
-            }
+            slices.push(self.new_node(BinaryOpSlice::new(operator, right)));
         }
 
         return Ok(self.new_node(PlusExpression::new(left, slices)));
@@ -1358,20 +1338,15 @@ impl<'a> Parser<'a> {
         let left = self.prefixed_expression()?;
         let mut slices = Vec::new();
 
-        loop {
-            match self.current_token_type() {
-                TokenType::Multiply | TokenType::Divide | TokenType::Modulo => {
-                    self.start_node();
+        while let TokenType::Multiply | TokenType::Divide | TokenType::Modulo = self.current_token_type() {
+            self.start_node();
 
-                    self.start_node();
-                    let operator = self.new_node(self.current_token_type());
-                    self.next_token();
-                    let right = self.prefixed_expression()?;
+            self.start_node();
+            let operator = self.new_node(self.current_token_type());
+            self.next_token();
+            let right = self.prefixed_expression()?;
 
-                    slices.push(self.new_node(BinaryOpSlice::new(operator, right)));
-                }
-                _ => break,
-            }
+            slices.push(self.new_node(BinaryOpSlice::new(operator, right)));
         }
 
         return Ok(self.new_node(MultiplyExpression::new(left, slices)));

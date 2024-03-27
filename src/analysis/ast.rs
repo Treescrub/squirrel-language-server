@@ -23,7 +23,7 @@ impl Script {
         let mut range = SourceRange::new_empty();
 
         if !statements.is_empty() {
-            range = SourceRange::new(statements.get(0).unwrap().range.start, statements.get(statements.len() - 1).unwrap().range.end);
+            range = SourceRange::new(statements.get(0).unwrap().range.start, statements.last().unwrap().range.end);
         }
 
         Self {

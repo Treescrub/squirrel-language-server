@@ -23,8 +23,8 @@ impl DebugSettings {
     }
 }
 
-impl Into<ConfigurationItem> for DebugSettings {
-    fn into(self) -> ConfigurationItem {
-        return self.get_config_item();
+impl From<DebugSettings> for ConfigurationItem {
+    fn from(value: DebugSettings) -> Self {
+        return value.get_config_item();
     }
 }
