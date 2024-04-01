@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
-#[derive(Debug, Copy, Clone)]
+use tower_lsp::lsp_types::Position;
+
+#[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
 pub struct SourceRange {
     pub start: SourceLocation,
     pub end: SourceLocation,
@@ -37,7 +39,7 @@ impl SourceRange {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
 pub struct SourceLocation {
     pub line: u32,
     pub column: u32,
@@ -57,7 +59,11 @@ impl SourceLocation {
         }
     }
 
-    pub fn to_position(self) -> tower_lsp::lsp_types::Position {
-        tower_lsp::lsp_types::Position { line: self.line - 1, character: self.column - 1 }
+    pub fn to_position(self) -> Position {
+        Position { line: self.line - 1, character: self.column - 1 }
+    }
+
+    pub fn from_position(position: Position) -> Self {
+        Self { line: position.line + 1, column: position.character + 1 }
     }
 }

@@ -11,8 +11,10 @@ use std::collections::HashSet;
 use std::fmt::Display;
 
 use analysis::ast::AstNode;
+use analysis::ast::Identifier;
 use analysis::ast::Script;
 use analysis::parser::ParseError;
+use analysis::source_info::SourceLocation;
 use settings::DebugSettings;
 use visitors::identifier_collector::IdentifierCollector;
 use crate::analysis::lexer::Lexer;
@@ -26,7 +28,6 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 use visitors::SimpleVisitorMut;
 use visitors::pretty_printer::PrettyPrinter;
 
-#[derive(Debug)]
 struct Backend {
     client: Client,
     state: Mutex<State>,
@@ -108,17 +109,16 @@ impl Backend {
     }
 }
 
-#[derive(Debug)]
 struct State {
     doc_manager: DocumentManager,
-    identifiers: HashSet<String>,
+    identifiers: Vec<AstNode<Identifier>>,
 }
 
 impl State {
     fn new() -> Self {
         Self {
             doc_manager: DocumentManager::new(),
-            identifiers: HashSet::new(),
+            identifiers: Vec::new(),
         }
     }
 }
@@ -241,14 +241,25 @@ impl LanguageServer for Backend {
         self.print_verbose(MessageType::INFO, format!("open files: {}", state.doc_manager.total_open_files())).await;
     }
 
-    async fn completion(&self, _: CompletionParams) -> Result<Option<CompletionResponse>> {
+    async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
         let mut items = Self::build_keyword_completions();
+        let completion_pos = params.text_document_position.position;
+        let mut identifier_names: HashSet<String> = HashSet::new();
 
         let state = self.state.lock().await;
 
         for identifier in &state.identifiers {
+            if identifier.range.end == SourceLocation::from_position(completion_pos) {
+                continue;
+            }
+            if identifier_names.contains(&identifier.value.value) {
+                continue;
+            }
+
+            identifier_names.insert(identifier.value.value.clone());
+
             items.push(CompletionItem {
-                label: String::from(identifier),
+                label: identifier.value.value.clone(),
                 kind: Some(CompletionItemKind::VARIABLE),
                 ..CompletionItem::default()
             });

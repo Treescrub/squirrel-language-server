@@ -1,5 +1,6 @@
 use super::{lexer::{TokenType, Token}, source_info::SourceRange};
 
+#[derive(Debug, Clone)]
 pub struct AstNode<T> {
     pub range: SourceRange,
     pub value: Box<T>,
@@ -483,6 +484,7 @@ pub enum PrefixedExpressionType {
     FunctionCall(AstNode<FunctionCallArgs>),
 }
 
+#[derive(Clone)]
 pub struct Identifier {
     pub value: String,
 }
