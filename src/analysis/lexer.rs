@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{str::Chars, collections::HashMap, fmt::Display};
+use std::{collections::HashMap, fmt::Display, iter::Peekable, str::Chars};
 
 use super::source_info::{SourceLocation, SourceRange};
 
@@ -255,7 +255,7 @@ impl Token {
 }
 
 pub struct Lexer<'a> {
-    iter: Chars<'a>,
+    iter: Peekable<Chars<'a>>,
     line: u32,
     column: u32,
     token_start_location: SourceLocation,
@@ -268,7 +268,7 @@ pub struct Lexer<'a> {
 impl<'a,'b> Lexer<'b> {
     pub fn new(data: &'a str) -> Self where 'a: 'b {
         Self {
-            iter: data.chars(),
+            iter: data.chars().peekable(),
             line: 1,
             column: 0,
             token_start_location: SourceLocation::new(),
@@ -384,6 +384,10 @@ impl<'a,'b> Lexer<'b> {
         return self.cur_char;
     }
 
+    fn peek(&mut self) -> Option<&char> {
+        return self.iter.peek();
+    }
+
     fn is_digit(char: char) -> bool {
         return char.is_ascii_digit();
     }
@@ -434,26 +438,10 @@ impl<'a,'b> Lexer<'b> {
                 }
 
                 match self.next() {
-                    'x' => {
+                    'x' | 'U' | 'u' => {
                         let mut hex_digits = String::new();
-                        while Self::is_hex(self.next()) {
-                            hex_digits.push(self.cur_char);
-                        }
-
-                        if let Ok(value) = u32::from_str_radix(&hex_digits, 16) {
-                            if let Some(char) = char::from_u32(value) {
-                                svalue.push(char);
-                            } else {
-                                fail_at_end = true;
-                            }
-                        } else {
-                            fail_at_end = true;
-                        }
-                    }
-                    'U' | 'u' => {
-                        let mut hex_digits = String::new();
-                        while Self::is_hex(self.next()) {
-                            hex_digits.push(self.cur_char);
+                        while Self::is_hex(*self.peek().unwrap_or(&'\0')) {
+                            hex_digits.push(self.next());
                         }
 
                         if let Ok(value) = u32::from_str_radix(&hex_digits, 16) {
