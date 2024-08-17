@@ -237,9 +237,11 @@ impl fmt::Display for Token {
         if self.nvalue.is_some() {
             write!(f, ", nval {:?}", self.nvalue.unwrap())?;
         }
+
         if self.fvalue.is_some() {
             write!(f, ", fval {:?}", self.fvalue.unwrap())?;
         }
+
         if self.svalue.is_some() {
             write!(f, ", sval {:?}", self.svalue.as_ref().unwrap())?;
         }
@@ -374,6 +376,7 @@ impl<'a,'b> Lexer<'b> {
     fn next(&mut self) -> char {
         self.cur_token_text.push(self.cur_char);
         self.cur_char = self.iter.next().unwrap_or('\0');
+
         if self.cur_char == '\n' {
             self.line += 1;
             self.column = 0;
@@ -407,6 +410,7 @@ impl<'a,'b> Lexer<'b> {
     fn lex_identifier(&mut self) {
         loop {
             self.next();
+
             match self.cur_char {
                 'a'..='z' | 'A'..='Z' | '_' | '0'..='9' => (),
                 _ => {
@@ -425,12 +429,15 @@ impl<'a,'b> Lexer<'b> {
         let mut fail_at_end = false;
         let mut svalue = String::new();
         let delimiter = self.cur_char;
+
         loop {
             self.next();
+            
             if self.cur_char == '\n' && !verbatim {
                 // still consume tokens up to ending delimiter
                 fail_at_end = true;
             }
+
             if self.cur_char == '\\' {
                 if verbatim {
                    svalue.push(self.cur_char);
@@ -470,6 +477,7 @@ impl<'a,'b> Lexer<'b> {
 
                 continue;
             }
+
             if self.cur_char == delimiter {
                 self.next();
 
@@ -481,6 +489,7 @@ impl<'a,'b> Lexer<'b> {
 
                 break;
             }
+
             if self.cur_char == '\0' {
                 self.end_bad_token();
                 break;
@@ -504,7 +513,9 @@ impl<'a,'b> Lexer<'b> {
         let mut num_type: NumberType = NumberType::Int;
         let first_char = self.cur_char;
         let mut parse_chars = String::new();
+
         self.next();
+
         if first_char == '0' && (self.cur_char.to_ascii_uppercase() == 'X' || Self::is_octal(self.cur_char))  { // could be hex or octal
             if self.cur_char.to_ascii_uppercase() == 'X' {
                 num_type = NumberType::Hex;
@@ -516,6 +527,7 @@ impl<'a,'b> Lexer<'b> {
                 num_type = NumberType::Octal;
                 
                 parse_chars.push(self.cur_char);
+                
                 while Self::is_octal(self.next()) {
                     parse_chars.push(self.cur_char);
                 }
@@ -586,6 +598,7 @@ impl<'a,'b> Lexer<'b> {
 
     fn lex_integer(chars: String) -> i32 {
         let mut result: i32 = 0;
+
         for char in chars.chars() {
             result = result.wrapping_mul(10);
             result = result.wrapping_add(char.to_digit(10).unwrap() as i32);
@@ -596,6 +609,7 @@ impl<'a,'b> Lexer<'b> {
 
     fn lex_octal(chars: String) -> i32 {
         let mut result: i32 = 0;
+
         for char in chars.chars() {
             result = result.wrapping_mul(8);
             result = result.wrapping_add(char.to_digit(10).unwrap() as i32);
@@ -613,6 +627,7 @@ impl<'a,'b> Lexer<'b> {
                 self.end_token(TokenType::EndOfTokens);
                 return;
             }
+
             if self.cur_char == ' ' || self.cur_char == '\t' || self.cur_char == '\r' {
                 self.next();
                 continue;
